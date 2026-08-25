@@ -71,7 +71,7 @@ export const editOpSchema = z.discriminatedUnion("op", [
 		param: z.string().min(1),
 		time: seconds,
 		value: paramValue,
-		interpolation: z.enum(["linear", "hold", "ease"]).optional(),
+		interpolation: z.enum(["linear", "hold", "bezier"]).optional(),
 	}),
 	z.object({
 		op: z.literal("add_effect"),
