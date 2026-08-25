@@ -53,13 +53,16 @@ export interface ProjectDTO {
 	id: string;
 	name: string;
 	durationSeconds: number;
+	/** Decimal fps for display. `frameRate` is the exact rational the editor stores. */
 	fps: number;
+	frameRate: { numerator: number; denominator: number };
 	canvasSize: { width: number; height: number };
 	background: { type: string; color?: string; blurIntensity?: number };
 	scenes: Array<{ id: string; name: string; isMain: boolean }>;
 	currentSceneId: string;
 	media: MediaAssetDTO[];
-	storage: { usedBytes: number; availableBytes: number };
+	/** `null` where the browser declines to estimate — never guess a number here. */
+	storage: { usedBytes: number | null; availableBytes: number | null };
 }
 
 export interface ProjectSummaryDTO {

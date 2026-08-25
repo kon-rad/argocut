@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { TICKS_PER_SECOND } from "@/wasm";
+import { mediaTime, TICKS_PER_SECOND } from "@/wasm";
 import { toMediaTime, toSeconds } from "../time";
 
 describe("agent time conversion", () => {
 	test("converts seconds to integer ticks", () => {
-		expect(toMediaTime({ seconds: 2 })).toBe(2 * TICKS_PER_SECOND);
+		expect(toMediaTime({ seconds: 2 })).toBe(mediaTime({ ticks: 2 * TICKS_PER_SECOND }));
 	});
 
 	test("round-trips a fractional second", () => {
