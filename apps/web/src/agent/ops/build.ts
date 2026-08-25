@@ -12,8 +12,8 @@ import {
 	UpsertKeyframeCommand,
 } from "@/commands/timeline";
 import { EditorCore } from "@/core";
-import { buildDefaultMaskInstance } from "@/masks";
-import type { Mask } from "@/masks/types";
+import { buildDefaultMaskInstance, masksRegistry } from "@/masks";
+import type { Mask, MaskType } from "@/masks/types";
 import type { ParamValues } from "@/params";
 import {
 	buildDefaultParamValues,
@@ -38,6 +38,24 @@ export interface BuiltOp {
 
 function defaultParamsFor({ type }: { type: ElementType }): ParamValues {
 	return buildDefaultParamValues(getBuiltInElementParams({ type }));
+}
+
+/**
+ * `maskType` arrives as a free string over the wire. Narrow it against the
+ * registry so an unknown type is a clear error rather than a cast that blows up
+ * inside `buildDefault`.
+ */
+function requireMaskType({ maskType }: { maskType: string }): MaskType {
+	const candidate = maskType as MaskType;
+	if (!masksRegistry.has(candidate)) {
+		throw new Error(
+			`Unknown mask type "${maskType}". Registered types: ${masksRegistry
+				.getAll()
+				.map((definition) => definition.type)
+				.join(", ")}`,
+		);
+	}
+	return candidate;
 }
 
 function trackTypeForRef({ ref }: { ref: string }): TrackType | undefined {
@@ -311,7 +329,9 @@ export function buildCommand({
 			const resolved = resolveTarget({ tracks, target: op.target, refs });
 			const existing =
 				"masks" in resolved.element ? (resolved.element.masks ?? []) : [];
-			const mask: Mask = buildDefaultMaskInstance({ maskType: op.maskType });
+			const mask: Mask = buildDefaultMaskInstance({
+				maskType: requireMaskType({ maskType: op.maskType }),
+			});
 
 			return {
 				command: new UpdateElementsCommand({
