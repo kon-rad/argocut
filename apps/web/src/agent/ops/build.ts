@@ -46,16 +46,16 @@ function defaultParamsFor({ type }: { type: ElementType }): ParamValues {
  * inside `buildDefault`.
  */
 function requireMaskType({ maskType }: { maskType: string }): MaskType {
-	const candidate = maskType as MaskType;
-	if (!masksRegistry.has(candidate)) {
+	const registered = masksRegistry.getAll();
+	const match = registered.find((definition) => definition.type === maskType);
+	if (!match) {
 		throw new Error(
-			`Unknown mask type "${maskType}". Registered types: ${masksRegistry
-				.getAll()
+			`Unknown mask type "${maskType}". Registered types: ${registered
 				.map((definition) => definition.type)
 				.join(", ")}`,
 		);
 	}
-	return candidate;
+	return match.type;
 }
 
 function trackTypeForRef({ ref }: { ref: string }): TrackType | undefined {

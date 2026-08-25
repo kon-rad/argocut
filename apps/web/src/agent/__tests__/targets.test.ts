@@ -48,7 +48,7 @@ function buildTracks(): SceneTracks {
 				elements: [],
 			},
 		],
-	} as unknown as SceneTracks;
+	};
 }
 
 describe("resolveTrackRef", () => {

@@ -7,6 +7,7 @@ import { TooltipProvider } from "../components/ui/tooltip";
 import { baseMetaData } from "./metadata";
 import { BotIdClient } from "botid/client";
 import { webEnv } from "@/env/web";
+import { AgentBridge } from "@/agent";
 import { Inter } from "next/font/google";
 
 const siteFont = Inter({ subsets: ["latin"] });
@@ -59,6 +60,7 @@ export default function RootLayout({
 							data-track-web-vitals={false}
 							data-track-sessions={false}
 						/>
+						<AgentBridge />
 						{children}
 					</TooltipProvider>
 				</ThemeProvider>

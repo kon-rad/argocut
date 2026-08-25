@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { EditorCore } from "@/core";
+import { setAgentEditorReady } from "@/agent";
 import { useEditor } from "@/editor/use-editor";
 import { useKeybindingsListener } from "@/actions/use-keybindings";
 import { useKeybindingsStore } from "@/actions/keybindings-store";
@@ -147,6 +148,11 @@ function EditorRuntimeBindings() {
 		window.addEventListener("beforeunload", handleBeforeUnload);
 		return () => window.removeEventListener("beforeunload", handleBeforeUnload);
 	}, [editor]);
+
+	useEffect(() => {
+		setAgentEditorReady({ ready: true });
+		return () => setAgentEditorReady({ ready: false });
+	}, []);
 
 	useEditorActions();
 	useKeybindingsListener();

@@ -28,7 +28,7 @@ function buildTracks(): SceneTracks {
 		},
 		overlay: [],
 		audio: [],
-	} as unknown as SceneTracks;
+	};
 }
 
 describe("serializeTracks", () => {
