@@ -17,8 +17,7 @@ import {
 	readTimeline,
 } from "./read";
 import { isAgentEditorReady, waitForAgentEditor } from "./ready";
-
-export const AGENT_API_VERSION = 1;
+import { AGENT_API_VERSION } from "./version";
 
 function classify({ message }: { message: string }): AgentErrorCode {
 	if (/timed out waiting for the editor/i.test(message)) return "editor_not_ready";

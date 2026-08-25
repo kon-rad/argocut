@@ -7,7 +7,7 @@ import { TooltipProvider } from "../components/ui/tooltip";
 import { baseMetaData } from "./metadata";
 import { BotIdClient } from "botid/client";
 import { webEnv } from "@/env/web";
-import { AgentBridge } from "@/agent";
+import { AgentBridge } from "@/agent/bridge";
 import { Inter } from "next/font/google";
 
 const siteFont = Inter({ subsets: ["latin"] });
