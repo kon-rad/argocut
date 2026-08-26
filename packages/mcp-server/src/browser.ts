@@ -93,7 +93,34 @@ export class AgentBrowser {
 		// A modal dialog blocks every subsequent CDP command. Nothing is watching.
 		this.page.on("dialog", (dialog) => void dialog.dismiss());
 
+		// A fresh context sits on about:blank, where no app code has run and the
+		// facade does not exist. Land on the app so `window.__opencutAgent` is
+		// installed before any call is attempted.
+		await this.page.goto(this.config.baseUrl, { waitUntil: "domcontentloaded" });
+		await this.waitForFacade({ page: this.page });
+
 		return this.page;
+	}
+
+	/**
+	 * Waits for the bridge to install the facade. Distinct from waiting for the
+	 * editor to be ready — read-only calls such as `listProjects` need only the
+	 * facade, and no project is open on a non-editor page.
+	 */
+	private async waitForFacade({ page }: { page: Page }): Promise<void> {
+		try {
+			await page.waitForFunction(
+				() =>
+					typeof (window as unknown as { __opencutAgent?: unknown })
+						.__opencutAgent !== "undefined",
+				undefined,
+				{ timeout: this.config.navigationTimeoutMs },
+			);
+		} catch {
+			throw new Error(
+				`The agent API was never installed at ${this.config.baseUrl}. Start the web app with NEXT_PUBLIC_OPENCUT_AGENT_API=1 — without that flag the bridge does nothing.`,
+			);
+		}
 	}
 
 	/** Navigates to a project and waits for the agent API to report the editor ready. */
@@ -102,6 +129,7 @@ export class AgentBrowser {
 		await page.goto(`${this.config.baseUrl}/editor/${projectId}`, {
 			waitUntil: "domcontentloaded",
 		});
+		await this.waitForFacade({ page });
 
 		await page.waitForFunction(
 			() =>

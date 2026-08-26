@@ -33,6 +33,18 @@ Track refs are `main`, `overlay:<n>`, `audio:<n>`, or a raw track id.
 | `add_mask` | `target`, `maskType` |
 | `add_track` | `type`, `name?` |
 
+## Duration is the timeline length, trim is the source offset
+
+`duration` is how long the element occupies the timeline. `trimStart` and
+`trimEnd` are offsets into the source. `add_clip` derives the duration for you as
+`sourceDuration - trimStart - trimEnd` — but if you ever set them by hand, keep
+them consistent. A trim that does not shorten the duration leaves the clip at its
+full source length, which overlaps its neighbour and spills onto a new track.
+
+Give a following clip a start time at least a millisecond past the previous
+clip's end. Float arithmetic on frame boundaries lands a few microseconds short,
+and the overlap check is exact.
+
 ## Trim is measured from both ends
 
 `trimStart` is seconds cut off the head. `trimEnd` is seconds cut off the **tail**,
@@ -53,11 +65,13 @@ that is what they are in the editor too:
 
 ```json
 { "op": "add_keyframe", "target": {"ref": 0}, "param": "opacity", "time": 0,   "value": 0 },
-{ "op": "add_keyframe", "target": {"ref": 0}, "param": "opacity", "time": 0.5, "value": 100 }
+{ "op": "add_keyframe", "target": {"ref": 0}, "param": "opacity", "time": 0.5, "value": 1 }
 ```
 
-`volume` is keyframable and expressed in **dB**, so a duck goes to a negative
-value, not to a fraction.
+`volume` is keyframable and expressed in **dB** (range -60 to 20, default 0), so a
+duck goes to a negative value, not to a fraction. `opacity` runs **0 to 1**, not
+0 to 100. To silence a clip outright there is a `muted` boolean — cheaper and
+clearer than keyframing volume to the floor.
 
 Interpolation is `linear`, `hold`, or `bezier`. There is no `ease`.
 

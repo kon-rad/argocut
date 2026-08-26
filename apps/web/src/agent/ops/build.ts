@@ -76,24 +76,41 @@ function buildClipElement({
 	op: Extract<EditOp, { op: "add_clip" }>;
 	asset: { id: string; name: string; type: "image" | "video" | "audio"; duration?: number };
 }): CreateTimelineElement {
+	// `duration` is the element's length **on the timeline**; `trimStart` and
+	// `trimEnd` are offsets into the source. The visible span is therefore
+	// `sourceDuration - trimStart - trimEnd`, and setting a trim without
+	// shortening the duration leaves the clip occupying its full source length —
+	// which then overlaps its neighbour and spills onto a new track.
+	const trimStartSeconds = op.trimStart ?? 0;
+	const trimEndSeconds = op.trimEnd ?? 0;
+	const sourceSeconds = asset.duration;
+
+	if (sourceSeconds !== undefined) {
+		const visible = sourceSeconds - trimStartSeconds - trimEndSeconds;
+		if (visible <= 0) {
+			throw new Error(
+				`Trim leaves nothing of "${asset.name}": source is ${sourceSeconds.toFixed(3)}s but trimStart ${trimStartSeconds} + trimEnd ${trimEndSeconds} consume all of it`,
+			);
+		}
+	}
+
 	const common = {
 		name: op.name ?? asset.name,
 		duration:
-			asset.duration !== undefined
-				? toMediaTime({ seconds: asset.duration })
+			sourceSeconds !== undefined
+				? toMediaTime({
+						seconds: sourceSeconds - trimStartSeconds - trimEndSeconds,
+					})
 				: DEFAULT_NEW_ELEMENT_DURATION,
 		startTime:
 			op.startTime !== undefined
 				? toMediaTime({ seconds: op.startTime })
 				: ZERO_MEDIA_TIME,
-		trimStart:
-			op.trimStart !== undefined
-				? toMediaTime({ seconds: op.trimStart })
-				: ZERO_MEDIA_TIME,
-		trimEnd:
-			op.trimEnd !== undefined
-				? toMediaTime({ seconds: op.trimEnd })
-				: ZERO_MEDIA_TIME,
+		trimStart: toMediaTime({ seconds: trimStartSeconds }),
+		trimEnd: toMediaTime({ seconds: trimEndSeconds }),
+		...(sourceSeconds !== undefined && {
+			sourceDuration: toMediaTime({ seconds: sourceSeconds }),
+		}),
 	};
 
 	switch (asset.type) {
