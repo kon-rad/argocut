@@ -18,7 +18,19 @@ describe("loadConfig", () => {
 		);
 	});
 
-	test("defaults the profile directory under the home directory", () => {
-		expect(loadConfig({ env: { HOME: "/home/x" } }).profileDir).toBe("/home/x/.opencut-agent/profile");
+	test("defaults the data root under the home directory", () => {
+		expect(loadConfig({ env: { HOME: "/home/x" } }).profileDir).toBe("/home/x/ArgoCut/profile");
+	});
+
+	test("honours ARGOCUT_HOME", () => {
+		expect(loadConfig({ env: { ARGOCUT_HOME: "/vol/argocut" } }).profileDir).toBe(
+			"/vol/argocut/profile",
+		);
+	});
+
+	test("still honours the legacy OPENCUT_AGENT_HOME", () => {
+		expect(
+			loadConfig({ env: { OPENCUT_AGENT_HOME: "/legacy" } }).backupDir,
+		).toBe("/legacy/backups");
 	});
 });

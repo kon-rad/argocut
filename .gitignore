@@ -26,3 +26,9 @@ target/
 .cargo-tools/
 
 rust-migration-notes.md
+
+# ArgoCut agent data — projects, media and browser profile live on local disk,
+# never in the repo. Default root is ~/ArgoCut (override with ARGOCUT_HOME).
+/data/
+/.argocut/
+*.argocut-backup.json

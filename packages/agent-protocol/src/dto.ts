@@ -61,8 +61,16 @@ export interface ProjectDTO {
 	scenes: Array<{ id: string; name: string; isMain: boolean }>;
 	currentSceneId: string;
 	media: MediaAssetDTO[];
-	/** `null` where the browser declines to estimate — never guess a number here. */
-	storage: { usedBytes: number | null; availableBytes: number | null };
+	/**
+	 * `persisted` is the durability flag that matters: without it the browser may
+	 * evict this project's IndexedDB and OPFS data under disk pressure. Byte
+	 * figures are `null` where the browser declines to estimate — never guess.
+	 */
+	storage: {
+		usedBytes: number | null;
+		availableBytes: number | null;
+		persisted: boolean;
+	};
 }
 
 export interface ProjectSummaryDTO {

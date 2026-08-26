@@ -32,6 +32,7 @@ export async function readProject(): Promise<ProjectDTO> {
 	const editor = EditorCore.getInstance();
 	const project = editor.project.getActive();
 	const quota = await readStorageQuotaStatus();
+	const persisted = (await navigator.storage?.persisted?.()) ?? false;
 
 	const media: MediaAssetDTO[] = editor.media.getAssets().map((asset) => ({
 		id: asset.id,
@@ -65,6 +66,7 @@ export async function readProject(): Promise<ProjectDTO> {
 		storage: {
 			usedBytes: quota.usageBytes,
 			availableBytes: quota.availableBytes,
+			persisted,
 		},
 	};
 }
