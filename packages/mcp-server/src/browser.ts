@@ -6,6 +6,7 @@ import {
 	writeFileSync,
 } from "node:fs";
 import { dirname } from "node:path";
+import { spawn } from "node:child_process";
 import { chromium, type BrowserContext, type Page } from "playwright";
 import type { AgentResult } from "@opencut/agent-protocol";
 import { loadConfig, type AgentServerConfig } from "./config";
@@ -216,16 +217,45 @@ export class AgentBrowser {
 	}
 
 	/**
-	 * Save, drop the headless context, relaunch the same profile headed at the
-	 * project. All state is on disk in the profile, so the relaunch is lossless.
+	 * Save, drop the headless context, and open the same profile in a window the
+	 * human owns. All state is on disk in the profile, so the relaunch is lossless.
+	 *
+	 * The window is spawned **detached**. A Playwright-launched browser is a child
+	 * of this process and dies with it, so handing one back that way gives the
+	 * human a window that vanishes the moment the MCP server exits. This one
+	 * outlives us.
+	 *
+	 * It is a separate browser from the human's daily Chrome, and necessarily so:
+	 * ArgoCut keeps projects in the browser profile, and this is the profile the
+	 * agent wrote to. The URL only resolves in this window.
 	 */
-	async handOff({ projectId }: { projectId: string }): Promise<string> {
+	async handOff({ projectId }: { projectId: string }): Promise<{
+		url: string;
+		profileDir: string;
+		note: string;
+	}> {
 		await this.call({ method: "save" });
 		await this.close();
 
-		await this.ensureStarted({ headless: false });
-		const finalId = await this.openProject({ projectId });
-		return `${this.config.baseUrl}/editor/${finalId}`;
+		const url = `${this.config.baseUrl}/editor/${projectId}`;
+		const child = spawn(
+			chromium.executablePath(),
+			[
+				`--user-data-dir=${this.config.profileDir}`,
+				"--no-first-run",
+				"--no-default-browser-check",
+				"--enable-unsafe-swiftshader",
+				url,
+			],
+			{ detached: true, stdio: "ignore" },
+		);
+		child.unref();
+
+		return {
+			url,
+			profileDir: this.config.profileDir,
+			note: "Opened in the agent's own browser window. This project lives in that profile, so the URL will look empty in your everyday Chrome.",
+		};
 	}
 
 	async close(): Promise<void> {

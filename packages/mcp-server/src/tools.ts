@@ -238,15 +238,14 @@ export function registerTools({
 		{
 			title: "Hand off to a human",
 			description:
-				"Save the active project, close the headless browser, and reopen the same profile in a visible window at the project. Returns the URL. Rendering and export stay a human action.",
+				"Save the active project, close the headless browser, and open the project in a detached window the human owns. Returns the URL and the profile it belongs to — the project lives in the agent browser profile, so the URL resolves only in that window, not in the human's everyday browser. Rendering and export stay a human action.",
 			inputSchema: z.object({}),
 		},
 		() =>
 			respond({
 				run: async () => {
 					const projectId = session.requireActiveProject();
-					const url = await session.browser.handOff({ projectId });
-					return { url };
+					return session.browser.handOff({ projectId });
 				},
 			}),
 	);
