@@ -30,15 +30,17 @@ export default function RootLayout({
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<BotIdClient protect={protectedRoutes} />
-				{process.env.NODE_ENV === "development" && (
-					<>
+				{/* React Scan outlines every re-rendering component. Useful when
+				    profiling, unbearable when reviewing a cut — so it is opt-in
+				    rather than automatic in development. */}
+				{process.env.NODE_ENV === "development" &&
+					process.env.NEXT_PUBLIC_REACT_SCAN === "1" && (
 						<Script
 							src="//unpkg.com/react-scan/dist/auto.global.js"
 							crossOrigin="anonymous"
 							strategy="beforeInteractive"
 						/>
-					</>
-				)}
+					)}
 			</head>
 			<body className={`${siteFont.className} font-sans antialiased`}>
 				<ThemeProvider
