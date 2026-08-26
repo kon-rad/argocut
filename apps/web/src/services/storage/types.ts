@@ -11,6 +11,8 @@ export interface StorageAdapter<T> {
 	set(args: { key: string; value: T }): Promise<void>;
 	remove(key: string): Promise<void>;
 	list(): Promise<string[]>;
+	/** Every value in the collection. One round trip, not one per key. */
+	getAll(): Promise<T[]>;
 	clear(): Promise<void>;
 }
 

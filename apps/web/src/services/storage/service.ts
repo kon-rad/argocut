@@ -1,6 +1,7 @@
 import type { TProject, TProjectMetadata } from "@/project/types";
 import { getProjectDurationFromScenes } from "@/timeline/scenes";
 import type { MediaAsset } from "@/media/types";
+import { HttpAdapter, HttpBlobAdapter, storageMode } from "./http-adapter";
 import { IndexedDBAdapter } from "./indexeddb-adapter";
 import { OPFSAdapter } from "./opfs-adapter";
 import {
@@ -12,6 +13,7 @@ import {
 } from "./quota";
 import type {
 	MediaAssetData,
+	StorageAdapter,
 	StorageConfig,
 	SerializedProject,
 	SerializedScene,
@@ -52,8 +54,8 @@ function normalizeBookmarks({ raw }: { raw: unknown }): Bookmark[] {
 }
 
 class StorageService {
-	private projectsAdapter: IndexedDBAdapter<SerializedProject>;
-	private savedSoundsAdapter: IndexedDBAdapter<SavedSoundsData>;
+	private projectsAdapter: StorageAdapter<SerializedProject>;
+	private savedSoundsAdapter: StorageAdapter<SavedSoundsData>;
 	private config: StorageConfig;
 	private migrationsPromise: Promise<void> | null = null;
 
@@ -65,17 +67,25 @@ class StorageService {
 			version: 1,
 		};
 
-		this.projectsAdapter = new IndexedDBAdapter<SerializedProject>({
-			dbName: this.config.projectsDb,
-			storeName: "projects",
-			version: this.config.version,
-		});
+		// In server mode the browser stops being the database and becomes a client
+		// of one, so a project is reachable from any window and any machine.
+		this.projectsAdapter =
+			storageMode() === "server"
+				? new HttpAdapter<SerializedProject>("projects")
+				: new IndexedDBAdapter<SerializedProject>({
+						dbName: this.config.projectsDb,
+						storeName: "projects",
+						version: this.config.version,
+					});
 
-		this.savedSoundsAdapter = new IndexedDBAdapter<SavedSoundsData>({
-			dbName: this.config.savedSoundsDb,
-			storeName: "saved-sounds",
-			version: this.config.version,
-		});
+		this.savedSoundsAdapter =
+			storageMode() === "server"
+				? new HttpAdapter<SavedSoundsData>("saved-sounds")
+				: new IndexedDBAdapter<SavedSoundsData>({
+						dbName: this.config.savedSoundsDb,
+						storeName: "saved-sounds",
+						version: this.config.version,
+					});
 	}
 
 	private async ensureMigrations(): Promise<void> {
@@ -90,7 +100,19 @@ class StorageService {
 		await this.migrationsPromise;
 	}
 
-	private getProjectMediaAdapters({ projectId }: { projectId: string }) {
+	private getProjectMediaAdapters({ projectId }: { projectId: string }): {
+		mediaMetadataAdapter: StorageAdapter<MediaAssetData>;
+		mediaAssetsAdapter: StorageAdapter<File>;
+	} {
+		if (storageMode() === "server") {
+			return {
+				mediaMetadataAdapter: new HttpAdapter<MediaAssetData>(
+					`${this.config.mediaDb}-${projectId}`,
+				),
+				mediaAssetsAdapter: new HttpBlobAdapter(`media-files-${projectId}`),
+			};
+		}
+
 		const mediaMetadataAdapter = new IndexedDBAdapter<MediaAssetData>({
 			dbName: `${this.config.mediaDb}-${projectId}`,
 			storeName: "media-metadata",

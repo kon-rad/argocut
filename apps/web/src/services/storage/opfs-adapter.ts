@@ -64,6 +64,12 @@ export class OPFSAdapter implements StorageAdapter<File> {
 		return keys;
 	}
 
+	async getAll(): Promise<File[]> {
+		const keys = await this.list();
+		const files = await Promise.all(keys.map((key) => this.get(key)));
+		return files.filter((file): file is File => file !== null);
+	}
+
 	async clear(): Promise<void> {
 		const directory = await this.getDirectory();
 
