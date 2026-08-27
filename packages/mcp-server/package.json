@@ -1,17 +1,17 @@
 {
-	"name": "@opencut/mcp-server",
+	"name": "@argocut/mcp-server",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"bin": {
-		"opencut-mcp": "./src/index.ts"
+		"argocut-mcp": "./src/index.ts"
 	},
 	"scripts": {
 		"start": "bun run src/index.ts"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/server": "2.0.0",
-		"@opencut/agent-protocol": "workspace:*",
+		"@argocut/agent-protocol": "workspace:*",
 		"playwright": "1.62.1",
 		"zod": "4.3.6"
 	},

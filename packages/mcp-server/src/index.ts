@@ -13,7 +13,7 @@ export { registerTools, TOOL_NAMES, type ToolName } from "./tools";
 
 export function createServer(): McpServer {
 	const server = new McpServer(
-		{ name: "opencut", version: "0.1.0" },
+		{ name: "argocut", version: "0.1.0" },
 		{ capabilities: { tools: {} } },
 	);
 
@@ -30,7 +30,7 @@ export function createServer(): McpServer {
 if (import.meta.main) {
 	serveStdio(() => createServer(), {
 		onerror: (error) => {
-			console.error("[opencut-mcp]", error.message);
+			console.error("[argocut-mcp]", error.message);
 		},
 	});
 }

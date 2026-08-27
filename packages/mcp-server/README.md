@@ -1,17 +1,17 @@
-# @opencut/mcp-server
+# @argocut/mcp-server
 
-An MCP server that lets an agent create and edit OpenCut projects unattended, then
+An MCP server that lets an agent create and edit ArgoCut projects unattended, then
 hand a finished-but-editable project to a human in a browser.
 
 Design: [`docs/agent-mcp-design.md`](../../docs/agent-mcp-design.md).
 
 ## How it works
 
-OpenCut classic is entirely client-side — projects live in IndexedDB and media in
+ArgoCut classic is entirely client-side — projects live in IndexedDB and media in
 OPFS, so there is no server-side row to write. **The browser is the runtime.** This
 server drives a persistent headless Chromium profile with Playwright and calls a
 typed facade (`apps/web/src/agent/`) that the web app installs on
-`window.__opencutAgent`. That facade wraps `EditorCore`'s command layer, so agent
+`window.__argocutAgent`. That facade wraps `EditorCore`'s command layer, so agent
 edits carry the same validation and the same undo history a human's edits do.
 
 ## Running it
@@ -19,7 +19,7 @@ edits carry the same validation and the same undo history a human's edits do.
 The web app must be up with the agent API enabled:
 
 ```bash
-NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web
+NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web
 ```
 
 Then, from an MCP client:
@@ -27,7 +27,7 @@ Then, from an MCP client:
 ```json
 {
   "command": "bun",
-  "args": ["run", "/path/to/opencut/packages/mcp-server/src/index.ts"]
+  "args": ["run", "/path/to/argocut/packages/mcp-server/src/index.ts"]
 }
 ```
 
@@ -38,9 +38,9 @@ when the dev server is down; the first call then reports that clearly.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `OPENCUT_BASE_URL` | `http://localhost:3000` | Where the web app is served |
-| `OPENCUT_AGENT_HOME` | `~/.opencut-agent` | Profile and lockfile root |
-| `OPENCUT_AGENT_HEADED` | unset | Set to `1` to watch the agent work |
+| `ARGOCUT_BASE_URL` | `http://localhost:3000` | Where the web app is served |
+| `ARGOCUT_AGENT_HOME` | `~/.argocut-agent` | Profile and lockfile root |
+| `ARGOCUT_AGENT_HEADED` | unset | Set to `1` to watch the agent work |
 
 A lockfile enforces single-writer access to the profile: two contexts on one
 profile corrupt IndexedDB, so a second session refuses to start and says so.

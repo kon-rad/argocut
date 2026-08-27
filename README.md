@@ -1,162 +1,158 @@
-# OpenCut (Legacy)
+<div align="center">
+  <img src="apps/web/public/logos/argocut/symbol.svg" width="88" alt="ArgoCut" />
+  <h1>ArgoCut</h1>
+  <p><strong>A video editor in your browser, scoped to your brand.</strong></p>
+</div>
 
-This is the original OpenCut codebase. It's archived and no longer maintained.
+ArgoCut is a fork of [OpenCut](https://github.com/OpenCut-app/OpenCut) with two
+things added:
 
-The rewrite is happening at [opencut-app/opencut](https://github.com/opencut-app/opencut).
+- **Brands.** A brand is a folder on your machine — a style guide and a set of
+  logos, emblems and title cards. Select one and everything you create belongs
+  to it, so projects, exports and agent workflows all know which brand they are
+  working in.
+- **Server-backed storage.** Projects and brands live in Postgres; media and
+  markdown live on disk. One database, every window, and it runs headless on a
+  Linux box.
 
-## Sponsors
+It also ships an [MCP server](packages/mcp-server) so an agent can drive the
+timeline directly — see [`skills/argocut-edit`](skills/argocut-edit).
 
-Thanks to [Vercel](https://vercel.com?utm_source=github-opencut&utm_campaign=oss) and [fal.ai](https://fal.ai?utm_source=github-opencut&utm_campaign=oss) for their support of open-source software.
+## Where things are stored
 
-<a href="https://vercel.com/oss">
-  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-</a>
+The split is deliberate, and it is the thing to understand before changing
+anything about persistence.
 
-<a href="https://fal.ai">
-  <img alt="Powered by fal.ai" src="https://img.shields.io/badge/Powered%20by-fal.ai-000000?style=flat&logo=data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJMMTMuMDkgOC4yNkwyMCAxMEwxMy4wOSAxNS43NEwxMiAyMkwxMC45MSAxNS43NEw0IDEwTDEwLjkxIDguMjZMMTIgMloiIGZpbGw9IndoaXRlIi8+Cjwvc3ZnPgo=" />
-</a>
+| What | Where | Why |
+|---|---|---|
+| Projects, media metadata, saved sounds | Postgres, `storage_docs` (`jsonb`) | Listed, sorted and joined. The body stays opaque so a timeline feature does not need a migration |
+| Brands, brand assets, active brand | Postgres — `brands`, `brand_assets`, `app_settings` | Real records with a stable shape, queried by name and kind |
+| Media binaries | Disk, `$ARGOCUT_DATA_DIR/blob/` | A 900 MB source as `bytea` is wrong on backup size, memory and streaming |
+| Style guides and brand assets | Your own brand folder | So Obsidian, Finder, git and any agent can read them. The database indexes this folder, it does not own it |
 
-## Why?
+A brand's folder is never written to except when you create one (which scaffolds
+a starter style guide) or edit the style guide in the app. **Removing a brand
+forgets the row and leaves every file on disk.**
 
-- **Privacy**: Your videos stay on your device
-- **Free features**: Most basic CapCut features are now paywalled 
-- **Simple**: People want editors that are easy to use - CapCut proved that
+## Project structure
 
-## Project Structure
+- `apps/web/` — Next.js web application
+- `apps/web/src/brands/` — the Brands feature: folder scanning, queries, UI
+- `apps/desktop/` — native desktop app built with GPUI (in progress)
+- `packages/mcp-server/` — MCP server so an agent can drive the editor
+- `rust/` — GPU compositor, effects, masks, and WASM bindings
+- `docs/` — architecture and subsystem documentation, including the [devlog](docs/devlog.md)
 
-- `apps/web/`: Next.js web application
-- `apps/desktop/`: Native desktop app built with GPUI (in progress)
-- `rust/`: Platform-agnostic core: GPU compositor, effects, masks, and WASM bindings. We're actively migrating business logic here from TypeScript.
-- `docs/`: Architecture and subsystem documentation
-
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
 - [Bun](https://bun.sh/docs/installation)
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/)
-
-> **Note:** Docker is optional but recommended for running the local database and Redis. If you only want to work on frontend features, you can skip it.
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose — **required**,
+  since projects and brands live in Postgres
 
 ### Setup
 
-1. Fork and clone the repository
+1. Clone the repository.
 
 2. Copy the environment file:
 
    ```bash
-   # Unix/Linux/Mac
    cp apps/web/.env.example apps/web/.env.local
-
-   # Windows PowerShell
-   Copy-Item apps/web/.env.example apps/web/.env.local
    ```
 
-3. Start the database and Redis:
+3. Start Postgres and Redis:
 
    ```bash
    docker compose up -d db redis serverless-redis-http
    ```
 
-4. Install dependencies and start the dev server:
+   > If something already holds port 5432 on your machine — a host Postgres
+   > binds `127.0.0.1` and silently wins over Docker's bind — set
+   > `ARGOCUT_DB_PORT=5434` in a root `.env` and point `DATABASE_URL` at the same
+   > port. The symptom otherwise is `role "argocut" does not exist`.
+
+4. Create the tables:
+
+   ```bash
+   cd apps/web && bun run db:migrate
+   ```
+
+5. Install dependencies and start the dev server:
 
    ```bash
    bun install
    bun dev:web
    ```
 
-The application will be available at [http://localhost:3000](http://localhost:3000).
+Available at [http://localhost:3000](http://localhost:3000).
 
-The `.env.example` has sensible defaults that match the Docker Compose config — it should work out of the box.
+### Adding your first brand
 
-### Desktop setup
+Open **Brands** in the header, then either:
 
-Desktop is opt-in. If you're only working on the web app, skip this entirely.
+- **New** — give it a name and a folder path. The folder is created along with
+  `style-guide.md` and `assets/`.
+- **Import folder** — point at a folder you already keep brand assets in.
+  Nothing is written; the style guide and assets directory are found by name.
 
-If you want to get ready for `apps/desktop`, see [`apps/desktop/README.md`](apps/desktop/README.md). It's a two-step setup: Rust toolchain first, then desktop native dependencies.
+Assets are classified from their filenames, so `argo-watermark.svg` files as a
+logo and `title-card.png` as a title card. Drop files into the folder and press
+**Rescan**.
+
+Colours and type are read from the style guide's YAML front matter:
+
+```yaml
+---
+colors:
+  primary: "#F5C842"
+  ink: "#1B1526"
+fonts:
+  display: Newsreader
+---
+```
+
+### Storage modes
+
+`NEXT_PUBLIC_STORAGE_MODE` selects where the editor keeps projects:
+
+- `server` (default) — Postgres for documents, disk for media
+- `local` — the browser profile (IndexedDB + OPFS), per-browser and not shareable
+
+`ARGOCUT_DOC_STORE=files` makes the API read documents written by the older
+filesystem store, which is how you migrate them across.
 
 ### Local WASM development
 
-Only needed if you're editing `rust/wasm` and want the web app to use your local build instead of the published package.
-
-**Prerequisites** — install these once before anything else:
-
-```bash
-# Rust toolchain
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# build the WASM package
-cargo install wasm-pack
-
-# reruns the build on file changes, used by bun dev:wasm
-cargo install cargo-watch
-```
-
-1. Build the package once from the repo root:
-
-   ```bash
-   bun run build:wasm
-   ```
-
-2. Register the generated package for linking:
-
-   ```bash
-   cd rust/wasm/pkg
-   bun link
-   ```
-
-3. Link `apps/web` to the local package:
-
-   ```bash
-   cd apps/web
-   bun link opencut-wasm
-   ```
-
-4. Rebuild on changes while you work:
-
-   ```bash
-   bun dev:wasm
-   ```
-
-To switch `apps/web` back to the published package, run:
+Only needed if you are editing `rust/wasm`. The package is still published as
+`opencut-wasm` and consumed by version range, so it keeps the upstream name.
 
 ```bash
-cd apps/web
-bun add opencut-wasm
+bun run build:wasm
+cd rust/wasm/pkg && bun link
+cd apps/web && bun link opencut-wasm
+bun dev:wasm
 ```
 
-### Self-Hosting with Docker
+Switch back to the published package with `bun add opencut-wasm`.
 
-To run everything (including a production build of the app) in Docker:
+### Self-hosting with Docker
 
 ```bash
 docker compose up -d
 ```
 
-The app will be available at [http://localhost:3100](http://localhost:3100).
+Available at [http://localhost:3100](http://localhost:3100).
 
-## Contributing
+## Credits
 
-We welcome contributions! While we're actively developing and refactoring certain areas, there are plenty of opportunities to contribute effectively.
+ArgoCut is a fork of [OpenCut](https://github.com/OpenCut-app/OpenCut) by the
+OpenCut authors, MIT licensed. The editor core, timeline and rendering are
+theirs; the brand system and Postgres storage are this fork's.
 
-**🎯 Focus areas:** Timeline functionality, project management, performance, bug fixes, and UI improvements outside the preview panel.
-
-**⚠️ Avoid for now:** Preview panel enhancements (fonts, stickers, effects) and export functionality - we're refactoring these with a new binary rendering approach.
-
-See our [Contributing Guide](.github/CONTRIBUTING.md) for detailed setup instructions, development guidelines, and complete focus area guidance.
-
-**Quick start for contributors:**
-
-- Fork the repo and clone locally
-- Follow the setup instructions in CONTRIBUTING.md
-- Working on `apps/desktop`? See [`apps/desktop/README.md`](apps/desktop/README.md) for setup
-- Create a feature branch and submit a PR
+Thanks to [Vercel](https://vercel.com/oss) and [fal.ai](https://fal.ai) for
+their support of the upstream project.
 
 ## License
 
-[MIT LICENSE](LICENSE)
-
----
-
-![Star History Chart](https://api.star-history.com/svg?repos=opencut-app/opencut&type=Date)
-
+[MIT](LICENSE)

@@ -5,7 +5,7 @@ import type {
 	ProjectDTO,
 	ProjectSummaryDTO,
 	TimelineDTO,
-} from "@opencut/agent-protocol";
+} from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { getElementParams } from "@/params/registry";
 import { readStorageQuotaStatus } from "@/services/storage/quota";

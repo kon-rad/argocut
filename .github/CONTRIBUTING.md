@@ -1,4 +1,4 @@
-# Contributing to OpenCut
+# Contributing to ArgoCut
 
 ⚠️ We are currently NOT accepting feature PRs while we build out the core editor.
 
@@ -10,7 +10,7 @@ If you want to contribute:
 
 Critical bug fixes may be accepted on a case-by-case basis.
 
-Thank you for your interest in contributing to OpenCut! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to ArgoCut! This document provides guidelines and instructions for contributing.
 
 ## Getting Started
 
@@ -112,7 +112,7 @@ If you're unsure whether your idea falls into the preview category, feel free to
 
    ```bash
    # Database (matches docker-compose.yaml)
-   DATABASE_URL="postgresql://opencut:opencut@localhost:5432/opencut"
+   DATABASE_URL="postgresql://argocut:argocut@localhost:5432/argocut"
 
    # Generate a secure secret for Better Auth
    BETTER_AUTH_SECRET="your-generated-secret-here"

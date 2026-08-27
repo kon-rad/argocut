@@ -26,13 +26,13 @@ export function loadConfig({
 }: {
 	env?: Record<string, string | undefined>;
 } = {}): AgentServerConfig {
-	const baseUrl = (env.OPENCUT_BASE_URL ?? "http://localhost:3000").replace(
+	const baseUrl = (env.ARGOCUT_BASE_URL ?? "http://localhost:3000").replace(
 		/\/+$/,
 		"",
 	);
 	const userHome = env.HOME ?? homedir();
 	const root =
-		env.ARGOCUT_HOME ?? env.OPENCUT_AGENT_HOME ?? join(userHome, "ArgoCut");
+		env.ARGOCUT_HOME ?? env.ARGOCUT_AGENT_HOME ?? join(userHome, "ArgoCut");
 
 	return {
 		baseUrl,
@@ -40,7 +40,7 @@ export function loadConfig({
 		profileDir: join(root, "profile"),
 		backupDir: join(root, "backups"),
 		lockFile: join(root, "session.lock"),
-		headless: env.OPENCUT_AGENT_HEADED !== "1",
+		headless: env.ARGOCUT_AGENT_HEADED !== "1",
 		viewport: { width: 1600, height: 1000 },
 		navigationTimeoutMs: 60_000,
 	};

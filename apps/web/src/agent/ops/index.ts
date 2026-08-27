@@ -1,4 +1,4 @@
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { AgentBatchCommand } from "./batch";
 

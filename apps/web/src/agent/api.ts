@@ -4,7 +4,7 @@ import {
 	ok,
 	type AgentErrorCode,
 	type AgentResult,
-} from "@opencut/agent-protocol";
+} from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { floatToFrameRate } from "@/fps/utils";
 import { importStagedMedia } from "./media";

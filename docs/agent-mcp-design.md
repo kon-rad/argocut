@@ -1,6 +1,6 @@
 # Agent MCP Design
 
-How an AI agent creates and edits OpenCut projects unattended, and hands a
+How an AI agent creates and edits ArgoCut projects unattended, and hands a
 finished-but-editable project to a human.
 
 ## Goal
@@ -8,14 +8,14 @@ finished-but-editable project to a human.
 A skill running in Claude Code assembles a video — generates or collects media,
 lays clips on the timeline, cuts, retimes, adds text and audio automation — with
 no browser open and no human present. When it finishes it returns a URL. The
-human opens that URL, sees a normal OpenCut project with every element editable
+human opens that URL, sees a normal ArgoCut project with every element editable
 and the agent's work sitting in the undo stack, then tweaks or exports it by hand.
 
 Explicitly **not** a goal: agent-driven export. Rendering stays a human action.
 
 ## Constraints this design is shaped by
 
-OpenCut classic is entirely client-side. There is no server-side project state.
+ArgoCut classic is entirely client-side. There is no server-side project state.
 
 | State | Location |
 |---|---|
@@ -39,7 +39,7 @@ Claude Code
   ▼
 packages/mcp-server/          Bun + @modelcontextprotocol/sdk
   │  owns tool schemas, validation, the Chromium profile, the lockfile
-  │  transport: Playwright/CDP -> page.evaluate("__opencutAgent.<op>", args)
+  │  transport: Playwright/CDP -> page.evaluate("__argocutAgent.<op>", args)
   ▼
 apps/web/src/agent/           new domain inside the app
   │  AgentAPI: seconds<->MediaTime, targets->ids, ops->Commands,
@@ -176,7 +176,7 @@ free disk, and video in OPFS is not small. `get_project` reports headroom, and
 
 ## Browser lifecycle
 
-The MCP server owns one persistent Chromium profile at `~/.opencut-agent/profile`.
+The MCP server owns one persistent Chromium profile at `~/.argocut-agent/profile`.
 It launches headless on the first tool call and keeps the context alive for the
 session.
 
@@ -207,7 +207,7 @@ Playwright is already a runtime dependency, so it doubles as the test harness.
 
 Each phase is shippable.
 
-1. **`apps/web/src/agent/`** — the facade, `window.__opencutAgent` behind an env
+1. **`apps/web/src/agent/`** — the facade, `window.__argocutAgent` behind an env
    flag, error-throwing wrappers, `BatchCommand` batching, forced save. Drivable
    from the browser console; no MCP needed to prove it works.
 2. **`packages/mcp-server/`** — profile lifecycle, health check, lockfile, and the
@@ -234,9 +234,9 @@ Each phase is shippable.
 - **The human reviews in a dedicated browser profile,** not their daily Chrome.
   Accepted cost of the browser-as-runtime approach.
 
-## Relationship to the OpenCut rewrite
+## Relationship to the ArgoCut rewrite
 
-`opencut-app/opencut` is a Rust-core rewrite whose README already promises an
+`argocut-app/argocut` is a Rust-core rewrite whose README already promises an
 Editor API, a plugin-first architecture, headless automation and MCP integration.
 It is pre-production and not accepting outside contributions. This design targets
 our fork of classic deliberately: classic is production-quality, fully readable,
@@ -258,7 +258,7 @@ scope (params, keyframes, masks, audio automation) is precisely the surface that
 is cheap to wrap and expensive to reimplement. Worth revisiting as a second
 transport behind the same tool schema.
 
-**Bundle on disk.** The agent writes `project.opencut/` (project.json plus media)
+**Bundle on disk.** The agent writes `project.argocut/` (project.json plus media)
 and the app gains import/export. Plain-files, git-diffable. Rejected: it carries
 the same duplication problem plus no round trip — once a human edits, the agent's
 copy is stale until an explicit re-export, which is the worst fit for "agent edits

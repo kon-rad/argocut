@@ -17,7 +17,7 @@ decision, not a gap.
 1. **The web app must be running with the agent flag.** `window.__argocutAgent`
    is only installed when it is on:
    ```bash
-   NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web
+   NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web
    ```
    Without it every tool call fails at the readiness check. Check first:
    `curl -s localhost:3000/api/health`.
@@ -29,7 +29,7 @@ decision, not a gap.
    back. If the user points at a project URL from their own browser, say so
    plainly rather than trying to open it.
 
-**Watch it work.** Set `OPENCUT_AGENT_HEADED=1` to run the agent's browser
+**Watch it work.** Set `ARGOCUT_AGENT_HEADED=1` to run the agent's browser
 visibly. For a first run on unfamiliar footage, prefer this — the user sees each
 batch land and can stop you early.
 

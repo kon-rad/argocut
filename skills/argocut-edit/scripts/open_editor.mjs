@@ -46,7 +46,7 @@ function findChromium() {
 
 const home = process.env.ARGOCUT_HOME ?? join(homedir(), "ArgoCut");
 const profileDir = join(home, "profile");
-const baseUrl = (process.env.OPENCUT_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+const baseUrl = (process.env.ARGOCUT_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 const projectId = process.argv[2];
 const url = projectId ? `${baseUrl}/editor/${projectId}` : `${baseUrl}/projects`;
 
@@ -68,7 +68,7 @@ try {
 	if (!response.ok) throw new Error(`status ${response.status}`);
 } catch {
 	console.error(
-		`ArgoCut is not serving at ${baseUrl}. Start it with:\n  NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web`,
+		`ArgoCut is not serving at ${baseUrl}. Start it with:\n  NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web`,
 	);
 	process.exit(1);
 }

@@ -1,4 +1,4 @@
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import type { Command } from "@/commands/base-command";
 import {
 	AddClipEffectCommand,

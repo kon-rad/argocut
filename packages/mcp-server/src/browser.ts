@@ -8,7 +8,7 @@ import {
 import { dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { chromium, type BrowserContext, type Page } from "playwright";
-import type { AgentResult } from "@opencut/agent-protocol";
+import type { AgentResult } from "@argocut/agent-protocol";
 import { loadConfig, type AgentServerConfig } from "./config";
 
 /**
@@ -18,7 +18,7 @@ import { loadConfig, type AgentServerConfig } from "./config";
  */
 const NEW_PROJECT_SEED = "00000000-0000-4000-8000-000000000000";
 
-const FILE_INPUT_ID = "__opencut_agent_file_input";
+const FILE_INPUT_ID = "__argocut_agent_file_input";
 
 export class AgentBrowser {
 	private context: BrowserContext | null = null;
@@ -46,7 +46,7 @@ export class AgentBrowser {
 
 			if (alive && pid !== process.pid) {
 				throw new Error(
-					`Another OpenCut agent session (pid ${pid}) already owns the browser profile at ${this.config.profileDir}. Close it before starting a new one.`,
+					`Another ArgoCut agent session (pid ${pid}) already owns the browser profile at ${this.config.profileDir}. Close it before starting a new one.`,
 				);
 			}
 			rmSync(lockFile, { force: true });
@@ -63,7 +63,7 @@ export class AgentBrowser {
 			}
 		} catch (error) {
 			throw new Error(
-				`OpenCut is not reachable at ${this.config.baseUrl}. Start it with "NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web" and try again. (${error instanceof Error ? error.message : String(error)})`,
+				`ArgoCut is not reachable at ${this.config.baseUrl}. Start it with "NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web" and try again. (${error instanceof Error ? error.message : String(error)})`,
 			);
 		}
 	}
@@ -95,7 +95,7 @@ export class AgentBrowser {
 		this.page.on("dialog", (dialog) => void dialog.dismiss());
 
 		// A fresh context sits on about:blank, where no app code has run and the
-		// facade does not exist. Land on the app so `window.__opencutAgent` is
+		// facade does not exist. Land on the app so `window.__argocutAgent` is
 		// installed before any call is attempted.
 		await this.page.goto(this.config.baseUrl, { waitUntil: "domcontentloaded" });
 		await this.waitForFacade({ page: this.page });
@@ -112,14 +112,14 @@ export class AgentBrowser {
 		try {
 			await page.waitForFunction(
 				() =>
-					typeof (window as unknown as { __opencutAgent?: unknown })
-						.__opencutAgent !== "undefined",
+					typeof (window as unknown as { __argocutAgent?: unknown })
+						.__argocutAgent !== "undefined",
 				undefined,
 				{ timeout: this.config.navigationTimeoutMs },
 			);
 		} catch {
 			throw new Error(
-				`The agent API was never installed at ${this.config.baseUrl}. Start the web app with NEXT_PUBLIC_OPENCUT_AGENT_API=1 — without that flag the bridge does nothing.`,
+				`The agent API was never installed at ${this.config.baseUrl}. Start the web app with NEXT_PUBLIC_ARGOCUT_AGENT_API=1 — without that flag the bridge does nothing.`,
 			);
 		}
 	}
@@ -136,9 +136,9 @@ export class AgentBrowser {
 			() =>
 				(
 					window as unknown as {
-						__opencutAgent?: { isReady(): boolean };
+						__argocutAgent?: { isReady(): boolean };
 					}
-				).__opencutAgent?.isReady() === true,
+				).__argocutAgent?.isReady() === true,
 			undefined,
 			{ timeout: this.config.navigationTimeoutMs },
 		);
@@ -164,12 +164,12 @@ export class AgentBrowser {
 			async ({ method: name, args: payload }) => {
 				const api = (
 					window as unknown as {
-						__opencutAgent?: Record<
+						__argocutAgent?: Record<
 							string,
 							(input?: unknown) => Promise<unknown>
 						>;
 					}
-				).__opencutAgent;
+				).__argocutAgent;
 				if (!api) {
 					return {
 						ok: false,

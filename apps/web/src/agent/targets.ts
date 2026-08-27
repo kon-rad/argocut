@@ -1,4 +1,4 @@
-import type { ElementTarget } from "@opencut/agent-protocol";
+import type { ElementTarget } from "@argocut/agent-protocol";
 import type {
 	SceneTracks,
 	TimelineElement,

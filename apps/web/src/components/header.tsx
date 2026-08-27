@@ -16,6 +16,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/utils/ui";
+import { BrandSwitcher } from "@/brands/components/brand-switcher";
 import { DEFAULT_LOGO_URL, SITE_URL } from "@/site/brand";
 import { SOCIAL_LINKS } from "@/site/social";
 import {
@@ -30,6 +31,10 @@ export function Header() {
 	const closeMenu = () => setIsMenuOpen(false);
 
 	const links = [
+		{
+			label: "Brands",
+			href: "/brands",
+		},
 		{
 			label: "Roadmap",
 			href: "/roadmap",
@@ -57,8 +62,7 @@ export function Header() {
 							<Link href="/" className="flex items-center gap-3">
 								<Image
 									src={DEFAULT_LOGO_URL}
-									alt="OpenCut Logo"
-									className="invert dark:invert-0"
+									alt="ArgoCut Logo"
 									width={32}
 									height={32}
 								/>
@@ -79,7 +83,7 @@ export function Header() {
 								onClick={() => {
 									const a = document.createElement("a");
 									a.href = DEFAULT_LOGO_URL;
-									a.download = "opencut-logo.svg";
+									a.download = "argocut-logo.svg";
 									a.click();
 								}}
 							>
@@ -118,10 +122,11 @@ export function Header() {
 						</Button>
 					</div>
 					<div className="hidden items-center gap-3 md:flex">
+						<BrandSwitcher />
 						<Link href={SOCIAL_LINKS.github}>
 							<Button className="bg-background text-sm" variant="outline">
 								<HugeiconsIcon icon={GithubIcon} className="size-4" />
-								40k+
+								GitHub
 							</Button>
 						</Link>
 						<Link href="/projects">

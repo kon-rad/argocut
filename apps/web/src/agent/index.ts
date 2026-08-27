@@ -9,4 +9,4 @@ export { AGENT_API_VERSION } from "./version";
 export type { AgentApi } from "./api";
 
 export const AGENT_API_ENABLED =
-	process.env.NEXT_PUBLIC_OPENCUT_AGENT_API === "1";
+	process.env.NEXT_PUBLIC_ARGOCUT_AGENT_API === "1";

@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
 		removeConsole: process.env.NODE_ENV === "production",
 	},
 	reactStrictMode: true,
-	transpilePackages: ["@opencut/agent-protocol"],
+	transpilePackages: ["@argocut/agent-protocol"],
 	productionBrowserSourceMaps: true,
 	output: "standalone",
 	images: {

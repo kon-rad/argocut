@@ -1,4 +1,4 @@
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import { Command, type CommandResult } from "@/commands/base-command";
 import { EditorCore } from "@/core";
 import { resolveTarget } from "../targets";

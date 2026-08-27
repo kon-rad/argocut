@@ -13,7 +13,7 @@ import Link from "next/link";
 import { RenameProjectDialog } from "@/project/components/rename-project-dialog";
 import { DeleteProjectDialog } from "@/project/components/delete-project-dialog";
 import { useRouter } from "next/navigation";
-import { FaDiscord } from "react-icons/fa6";
+import { FaGithub } from "react-icons/fa6";
 import { ExportButton } from "./export-button";
 import { FeedbackPopover } from "@/feedback/components/feedback-popover";
 import { ThemeToggle } from "../theme-toggle";
@@ -117,7 +117,7 @@ function ProjectDropdown() {
 							alt="Project thumbnail"
 							width={32}
 							height={32}
-							className="invert dark:invert-0 size-5"
+							className="size-5"
 						/>
 					</Button>
 				</DropdownMenuTrigger>
@@ -139,13 +139,13 @@ function ProjectDropdown() {
 
 					<DropdownMenuSeparator />
 
-					<DropdownMenuItem asChild icon={<FaDiscord className="size-4!" />}>
+					<DropdownMenuItem asChild icon={<FaGithub className="size-4!" />}>
 						<Link
-							href={SOCIAL_LINKS.discord}
+							href={SOCIAL_LINKS.github}
 							target="_blank"
 							rel="noopener noreferrer"
 						>
-							Discord
+							GitHub
 						</Link>
 					</DropdownMenuItem>
 				</DropdownMenuContent>

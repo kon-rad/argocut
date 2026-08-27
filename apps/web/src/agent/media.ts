@@ -1,8 +1,8 @@
-import type { ImportResultDTO } from "@opencut/agent-protocol";
+import type { ImportResultDTO } from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { processMediaAssets } from "@/media/processing";
 
-const INPUT_ID = "__opencut_agent_file_input";
+const INPUT_ID = "__argocut_agent_file_input";
 
 function getInput(): HTMLInputElement {
 	const existing = document.getElementById(INPUT_ID);

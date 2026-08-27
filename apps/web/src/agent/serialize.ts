@@ -1,4 +1,4 @@
-import type { ElementDTO, TrackDTO } from "@opencut/agent-protocol";
+import type { ElementDTO, TrackDTO } from "@argocut/agent-protocol";
 import type {
 	SceneTracks,
 	TimelineElement,

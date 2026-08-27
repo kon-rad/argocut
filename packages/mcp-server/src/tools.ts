@@ -1,5 +1,5 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
-import { applyEditsInputSchema } from "@opencut/agent-protocol";
+import { applyEditsInputSchema } from "@argocut/agent-protocol";
 import { z } from "zod";
 import type { AgentSession } from "./session";
 
@@ -58,7 +58,7 @@ export function registerTools({
 		{
 			title: "List projects",
 			description:
-				"List every OpenCut project in the agent browser profile: id, name, duration in seconds, and when it was last updated.",
+				"List every ArgoCut project in the agent browser profile: id, name, duration in seconds, and when it was last updated.",
 			inputSchema: z.object({}),
 		},
 		() => respond({ run: () => session.browser.call({ method: "listProjects" }) }),

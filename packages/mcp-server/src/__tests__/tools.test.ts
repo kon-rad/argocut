@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { applyEditsInputSchema } from "@opencut/agent-protocol";
+import { applyEditsInputSchema } from "@argocut/agent-protocol";
 import { TOOL_NAMES } from "../tools";
 
 describe("tool surface", () => {

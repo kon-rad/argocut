@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Let an AI agent create and edit OpenCut projects unattended through an MCP server, and hand a finished-but-editable project to a human in a browser.
+**Goal:** Let an AI agent create and edit ArgoCut projects unattended through an MCP server, and hand a finished-but-editable project to a human in a browser.
 
-**Architecture:** A typed facade (`apps/web/src/agent/`) wraps `EditorCore` inside the web app and is exposed on `window.__opencutAgent`. An MCP server (`packages/mcp-server/`) drives a persistent headless Chromium profile with Playwright and calls that facade via `page.evaluate`. Op schemas and DTOs live in a shared workspace package (`packages/agent-protocol/`) so both sides agree by construction.
+**Architecture:** A typed facade (`apps/web/src/agent/`) wraps `EditorCore` inside the web app and is exposed on `window.__argocutAgent`. An MCP server (`packages/mcp-server/`) drives a persistent headless Chromium profile with Playwright and calls that facade via `page.evaluate`. Op schemas and DTOs live in a shared workspace package (`packages/agent-protocol/`) so both sides agree by construction.
 
 **Tech Stack:** Bun 1.2.18 workspaces, TypeScript, Next.js 16, zod 4.3.6, `@modelcontextprotocol/server` 2.0.0, Playwright 1.62.
 
@@ -18,10 +18,10 @@
 - Path alias inside `apps/web` is `@/*` → `apps/web/src/*`.
 - `MediaTime` is a branded integer tick count. The **only** legal constructions are `mediaTimeFromSeconds({ seconds })` and `mediaTime({ ticks })` from `@/wasm`. Never cast a number to `MediaTime`.
 - `TICKS_PER_SECOND` from `@/wasm` is the tick scale.
-- The agent facade is gated on `process.env.NEXT_PUBLIC_OPENCUT_AGENT_API === "1"`. It must be impossible to reach in a normal production build.
+- The agent facade is gated on `process.env.NEXT_PUBLIC_ARGOCUT_AGENT_API === "1"`. It must be impossible to reach in a normal production build.
 - Facade methods **never throw across the `page.evaluate` boundary**. Every method returns `{ ok: true, value }` or `{ ok: false, error: { code, message, details } }`. Error classes do not survive structured cloning.
 - Unit tests run with `bun test` from the repo root and import from `bun:test`.
-- Shared package name is `@opencut/agent-protocol`; MCP package name is `@opencut/mcp-server`.
+- Shared package name is `@argocut/agent-protocol`; MCP package name is `@argocut/mcp-server`.
 - Commit after every task.
 
 ---
@@ -51,7 +51,7 @@ Creates the single source of truth for op schemas and DTOs that both the web fac
 
 ```json
 {
-	"name": "@opencut/agent-protocol",
+	"name": "@argocut/agent-protocol",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
@@ -391,13 +391,13 @@ Expected: FAIL — the module does not resolve yet if steps 2–4 were skipped; 
 In `apps/web/package.json`, add to `dependencies` (keep alphabetical order):
 
 ```json
-"@opencut/agent-protocol": "workspace:*",
+"@argocut/agent-protocol": "workspace:*",
 ```
 
 In `apps/web/next.config.ts`, add to the `nextConfig` object, immediately after `reactStrictMode: true,`:
 
 ```ts
-	transpilePackages: ["@opencut/agent-protocol"],
+	transpilePackages: ["@argocut/agent-protocol"],
 ```
 
 Then install:
@@ -431,7 +431,7 @@ The two pure helpers everything else depends on. Both are unit-testable without 
 - Test: `apps/web/src/agent/__tests__/targets.test.ts`
 
 **Interfaces:**
-- Consumes: `ElementTarget` from `@opencut/agent-protocol`; `MediaTime`, `mediaTimeFromSeconds`, `TICKS_PER_SECOND` from `@/wasm`; `SceneTracks`, `TimelineTrack`, `TimelineElement` from `@/timeline/types`.
+- Consumes: `ElementTarget` from `@argocut/agent-protocol`; `MediaTime`, `mediaTimeFromSeconds`, `TICKS_PER_SECOND` from `@/wasm`; `SceneTracks`, `TimelineTrack`, `TimelineElement` from `@/timeline/types`.
 - Produces: `toMediaTime({ seconds })`, `toSeconds({ time })`, `listTracks({ tracks })`, `trackRefOf({ tracks, trackId })`, `resolveTrackRef({ tracks, ref })`, `resolveTarget({ tracks, target, refs })`, type `ResolvedElement`.
 
 - [ ] **Step 1: Write the failing tests**
@@ -616,7 +616,7 @@ export function toSeconds({ time }: { time: MediaTime }): number {
 `apps/web/src/agent/targets.ts`:
 
 ```ts
-import type { ElementTarget } from "@opencut/agent-protocol";
+import type { ElementTarget } from "@argocut/agent-protocol";
 import type {
 	SceneTracks,
 	TimelineElement,
@@ -783,7 +783,7 @@ Turns editor state into the DTOs the MCP returns. The serializers are pure funct
 - Test: `apps/web/src/agent/__tests__/serialize.test.ts`
 
 **Interfaces:**
-- Consumes: `toSeconds`, `listTracks`, `trackRefOf` from Task 2; `ElementDTO`, `TrackDTO`, `TimelineDTO`, `ParamDefinitionDTO` from `@opencut/agent-protocol`.
+- Consumes: `toSeconds`, `listTracks`, `trackRefOf` from Task 2; `ElementDTO`, `TrackDTO`, `TimelineDTO`, `ParamDefinitionDTO` from `@argocut/agent-protocol`.
 - Produces: `serializeElement({ element, track, tracks, format })`, `serializeTracks({ tracks, format })`, `serializeTimeline({ scene, format })`, and from `read.ts`: `readProject()`, `readTimeline({ format })`, `findElements({ query })`, `describeParams({ elementType, elementId })`.
 
 - [ ] **Step 1: Write the failing test**
@@ -864,7 +864,7 @@ Expected: FAIL with "Cannot find module '../serialize'".
 `apps/web/src/agent/serialize.ts`:
 
 ```ts
-import type { ElementDTO, TrackDTO } from "@opencut/agent-protocol";
+import type { ElementDTO, TrackDTO } from "@argocut/agent-protocol";
 import type {
 	SceneTracks,
 	TimelineElement,
@@ -995,12 +995,12 @@ import type {
 	ProjectDTO,
 	ProjectSummaryDTO,
 	TimelineDTO,
-} from "@opencut/agent-protocol";
+} from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { getElementParams } from "@/params/registry";
 import { storageService } from "@/services/storage/service";
 import { readStorageQuotaStatus } from "@/services/storage/quota";
-import type { ElementDTO } from "@opencut/agent-protocol";
+import type { ElementDTO } from "@argocut/agent-protocol";
 import { listTracks, resolveTarget } from "./targets";
 import { serializeElement, serializeTimeline, type SerializeFormat } from "./serialize";
 import { toSeconds } from "./time";
@@ -1153,7 +1153,7 @@ The heart of the system. Ops execute one at a time so later ops can reference el
 - Test: `apps/web/src/agent/__tests__/verify.test.ts`
 
 **Interfaces:**
-- Consumes: `EditOp` from `@opencut/agent-protocol`; `resolveTarget`, `resolveTrackRef` from Task 2; `toMediaTime` from Task 2; commands from `@/commands/timeline`.
+- Consumes: `EditOp` from `@argocut/agent-protocol`; `resolveTarget`, `resolveTrackRef` from Task 2; `toMediaTime` from Task 2; commands from `@/commands/timeline`.
 - Produces: `buildCommand({ op, tracks, refs })` returning `{ command, record }`; `assertApplied({ op, command, tracks })`; `AgentBatchCommand`; `applyEdits({ ops })` returning `{ elementIds: Array<string | null> }`.
 
 - [ ] **Step 1: Write the failing test**
@@ -1191,7 +1191,7 @@ Expected: FAIL with "Cannot find module '../ops/verify'".
 `apps/web/src/agent/ops/build.ts`:
 
 ```ts
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import type { Command } from "@/commands/base-command";
 import {
 	AddTrackCommand,
@@ -1477,7 +1477,7 @@ export function buildCommand({
 `apps/web/src/agent/ops/verify.ts`:
 
 ```ts
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import type { SceneTracks } from "@/timeline/types";
 import { listTracks } from "../targets";
 
@@ -1553,7 +1553,7 @@ Expected: PASS, 2 tests.
 `apps/web/src/agent/ops/batch.ts`:
 
 ```ts
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import { Command, type CommandResult } from "@/commands/base-command";
 import { EditorCore } from "@/core";
 import { resolveTarget } from "../targets";
@@ -1651,7 +1651,7 @@ export class AgentBatchCommand extends Command {
 `apps/web/src/agent/ops/index.ts`:
 
 ```ts
-import type { EditOp } from "@opencut/agent-protocol";
+import type { EditOp } from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { AgentBatchCommand } from "./batch";
 
@@ -1706,7 +1706,7 @@ git commit -m "feat(agent): atomic op execution with rollback"
 
 ### Task 5: Media import, the window facade, and mounting
 
-Assembles everything into `window.__opencutAgent` and mounts it in the app behind the env flag.
+Assembles everything into `window.__argocutAgent` and mounts it in the app behind the env flag.
 
 **Files:**
 - Create: `apps/web/src/agent/media.ts`
@@ -1721,7 +1721,7 @@ Assembles everything into `window.__opencutAgent` and mounts it in the app behin
 
 **Interfaces:**
 - Consumes: everything from Tasks 2–4.
-- Produces: the global `window.__opencutAgent` object with methods `version()`, `isReady()`, `listProjects()`, `createProject()`, `getProject()`, `getTimeline()`, `findElements()`, `describeParams()`, `applyEdits()`, `importMedia()`, `save()`. Every method returns `Promise<AgentResult<T>>`.
+- Produces: the global `window.__argocutAgent` object with methods `version()`, `isReady()`, `listProjects()`, `createProject()`, `getProject()`, `getTimeline()`, `findElements()`, `describeParams()`, `applyEdits()`, `importMedia()`, `save()`. Every method returns `Promise<AgentResult<T>>`.
 
 - [ ] **Step 1: Implement the readiness flag**
 
@@ -1775,11 +1775,11 @@ export function waitForAgentEditor({
 `apps/web/src/agent/media.ts`:
 
 ```ts
-import type { ImportResultDTO } from "@opencut/agent-protocol";
+import type { ImportResultDTO } from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { processMediaAssets } from "@/media/processing";
 
-const INPUT_ID = "__opencut_agent_file_input";
+const INPUT_ID = "__argocut_agent_file_input";
 
 function getInput(): HTMLInputElement {
 	const existing = document.getElementById(INPUT_ID);
@@ -1871,7 +1871,7 @@ import {
 	err,
 	ok,
 	type AgentResult,
-} from "@opencut/agent-protocol";
+} from "@argocut/agent-protocol";
 import { EditorCore } from "@/core";
 import { importStagedMedia } from "./media";
 import { applyEdits } from "./ops";
@@ -2002,7 +2002,7 @@ export { setAgentEditorReady } from "./ready";
 export { AGENT_API_VERSION, type AgentApi } from "./api";
 
 export const AGENT_API_ENABLED =
-	process.env.NEXT_PUBLIC_OPENCUT_AGENT_API === "1";
+	process.env.NEXT_PUBLIC_ARGOCUT_AGENT_API === "1";
 ```
 
 `apps/web/src/agent/bridge.tsx`:
@@ -2015,21 +2015,21 @@ import { createAgentApi, type AgentApi } from "./api";
 
 declare global {
 	interface Window {
-		__opencutAgent?: AgentApi;
+		__argocutAgent?: AgentApi;
 	}
 }
 
 export function AgentBridge() {
 	useEffect(() => {
-		if (process.env.NEXT_PUBLIC_OPENCUT_AGENT_API !== "1") {
+		if (process.env.NEXT_PUBLIC_ARGOCUT_AGENT_API !== "1") {
 			return;
 		}
-		if (window.__opencutAgent) {
+		if (window.__argocutAgent) {
 			return;
 		}
 
-		window.__opencutAgent = createAgentApi();
-		console.info("[opencut-agent] API installed");
+		window.__argocutAgent = createAgentApi();
+		console.info("[argocut-agent] API installed");
 	}, []);
 
 	return null;
@@ -2072,22 +2072,22 @@ and inside the `EditorRuntimeBindings` component, add this effect after the exis
 Append to `apps/web/.env.example`:
 
 ```
-# Set to 1 to expose window.__opencutAgent for the agent MCP server. Never enable in production.
-NEXT_PUBLIC_OPENCUT_AGENT_API=0
+# Set to 1 to expose window.__argocutAgent for the agent MCP server. Never enable in production.
+NEXT_PUBLIC_ARGOCUT_AGENT_API=0
 ```
 
-In `turbo.json`, add `"NEXT_PUBLIC_OPENCUT_AGENT_API"` to the `build.env` array so the flag reaches production builds deterministically.
+In `turbo.json`, add `"NEXT_PUBLIC_ARGOCUT_AGENT_API"` to the `build.env` array so the flag reaches production builds deterministically.
 
 - [ ] **Step 7: Verify by hand**
 
 ```bash
-NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web
+NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web
 ```
 
 Open `http://localhost:3000/editor/00000000-0000-4000-8000-000000000000`, wait for the redirect to a real project id, then in the browser console:
 
 ```js
-await window.__opencutAgent.getTimeline({ format: "compact" })
+await window.__argocutAgent.getTimeline({ format: "compact" })
 ```
 
 Expected: `{ ok: true, value: { sceneId: "...", tracks: [...] } }`.
@@ -2113,7 +2113,7 @@ git commit -m "feat(agent): window facade, media import, and app mounting"
 - Test: `packages/mcp-server/src/__tests__/config.test.ts`
 
 **Interfaces:**
-- Consumes: `@opencut/agent-protocol`.
+- Consumes: `@argocut/agent-protocol`.
 - Produces: `loadConfig()`, `AgentBrowser` class with `ensureStarted()`, `openProject({ projectId })`, `createProject()`, `call({ method, args })`, `stageFiles({ paths })`, `handOff({ projectId })`, `close()`.
 
 - [ ] **Step 1: Create the manifest**
@@ -2122,19 +2122,19 @@ git commit -m "feat(agent): window facade, media import, and app mounting"
 
 ```json
 {
-	"name": "@opencut/mcp-server",
+	"name": "@argocut/mcp-server",
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"bin": {
-		"opencut-mcp": "./src/index.ts"
+		"argocut-mcp": "./src/index.ts"
 	},
 	"scripts": {
 		"start": "bun run src/index.ts"
 	},
 	"dependencies": {
 		"@modelcontextprotocol/server": "2.0.0",
-		"@opencut/agent-protocol": "workspace:*",
+		"@argocut/agent-protocol": "workspace:*",
 		"playwright": "1.62.1",
 		"zod": "4.3.6"
 	}
@@ -2156,20 +2156,20 @@ describe("loadConfig", () => {
 		expect(loadConfig({ env: {} }).baseUrl).toBe("http://localhost:3000");
 	});
 
-	test("honours OPENCUT_BASE_URL", () => {
-		expect(loadConfig({ env: { OPENCUT_BASE_URL: "http://localhost:3100" } }).baseUrl).toBe(
+	test("honours ARGOCUT_BASE_URL", () => {
+		expect(loadConfig({ env: { ARGOCUT_BASE_URL: "http://localhost:3100" } }).baseUrl).toBe(
 			"http://localhost:3100",
 		);
 	});
 
 	test("strips a trailing slash", () => {
-		expect(loadConfig({ env: { OPENCUT_BASE_URL: "http://localhost:3000/" } }).baseUrl).toBe(
+		expect(loadConfig({ env: { ARGOCUT_BASE_URL: "http://localhost:3000/" } }).baseUrl).toBe(
 			"http://localhost:3000",
 		);
 	});
 
 	test("defaults the profile directory under the home directory", () => {
-		expect(loadConfig({ env: { HOME: "/home/x" } }).profileDir).toBe("/home/x/.opencut-agent/profile");
+		expect(loadConfig({ env: { HOME: "/home/x" } }).profileDir).toBe("/home/x/.argocut-agent/profile");
 	});
 });
 ```
@@ -2201,15 +2201,15 @@ export function loadConfig({
 }: {
 	env?: Record<string, string | undefined>;
 } = {}): AgentServerConfig {
-	const baseUrl = (env.OPENCUT_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+	const baseUrl = (env.ARGOCUT_BASE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 	const home = env.HOME ?? homedir();
-	const root = env.OPENCUT_AGENT_HOME ?? join(home, ".opencut-agent");
+	const root = env.ARGOCUT_AGENT_HOME ?? join(home, ".argocut-agent");
 
 	return {
 		baseUrl,
 		profileDir: join(root, "profile"),
 		lockFile: join(root, "session.lock"),
-		headless: env.OPENCUT_AGENT_HEADED !== "1",
+		headless: env.ARGOCUT_AGENT_HEADED !== "1",
 		viewport: { width: 1600, height: 1000 },
 		navigationTimeoutMs: 60_000,
 	};
@@ -2229,7 +2229,7 @@ Expected: PASS, 4 tests.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { chromium, type BrowserContext, type Page } from "playwright";
-import type { AgentResult } from "@opencut/agent-protocol";
+import type { AgentResult } from "@argocut/agent-protocol";
 import { loadConfig, type AgentServerConfig } from "./config";
 
 const NEW_PROJECT_SEED = "00000000-0000-4000-8000-000000000000";
@@ -2259,7 +2259,7 @@ export class AgentBrowser {
 
 			if (alive && pid !== process.pid) {
 				throw new Error(
-					`Another OpenCut agent session (pid ${pid}) already owns the browser profile at ${this.config.profileDir}. Close it before starting a new one.`,
+					`Another ArgoCut agent session (pid ${pid}) already owns the browser profile at ${this.config.profileDir}. Close it before starting a new one.`,
 				);
 			}
 			rmSync(lockFile, { force: true });
@@ -2276,7 +2276,7 @@ export class AgentBrowser {
 			}
 		} catch (error) {
 			throw new Error(
-				`OpenCut is not reachable at ${this.config.baseUrl}. Start it with "NEXT_PUBLIC_OPENCUT_AGENT_API=1 bun dev:web" and try again. (${error instanceof Error ? error.message : String(error)})`,
+				`ArgoCut is not reachable at ${this.config.baseUrl}. Start it with "NEXT_PUBLIC_ARGOCUT_AGENT_API=1 bun dev:web" and try again. (${error instanceof Error ? error.message : String(error)})`,
 			);
 		}
 	}
@@ -2311,7 +2311,7 @@ export class AgentBrowser {
 		});
 
 		await page.waitForFunction(
-			() => window.__opencutAgent?.isReady() === true,
+			() => window.__argocutAgent?.isReady() === true,
 			undefined,
 			{ timeout: this.config.navigationTimeoutMs },
 		);
@@ -2340,7 +2340,7 @@ export class AgentBrowser {
 
 		const result = (await page.evaluate(
 			async ({ method: name, args: payload }) => {
-				const api = window.__opencutAgent as unknown as
+				const api = window.__argocutAgent as unknown as
 					| Record<string, (input?: unknown) => Promise<unknown>>
 					| undefined;
 				if (!api) {
@@ -2371,7 +2371,7 @@ export class AgentBrowser {
 	async stageFiles({ paths }: { paths: string[] }): Promise<void> {
 		const page = await this.ensureStarted();
 		await page.evaluate(() => {
-			const id = "__opencut_agent_file_input";
+			const id = "__argocut_agent_file_input";
 			if (document.getElementById(id)) return;
 			const input = document.createElement("input");
 			input.id = id;
@@ -2381,7 +2381,7 @@ export class AgentBrowser {
 			input.style.left = "-10000px";
 			document.body.appendChild(input);
 		});
-		await page.setInputFiles("#__opencut_agent_file_input", paths);
+		await page.setInputFiles("#__argocut_agent_file_input", paths);
 	}
 
 	async handOff({ projectId }: { projectId: string }): Promise<string> {
@@ -2426,7 +2426,7 @@ MCP client can actually call, and a process that speaks stdio.
 - Test: `packages/mcp-server/src/__tests__/tools.test.ts`
 
 **Interfaces:**
-- Consumes: `AgentBrowser` and `loadConfig` from Task 6; `applyEditsInputSchema` from `@opencut/agent-protocol`.
+- Consumes: `AgentBrowser` and `loadConfig` from Task 6; `applyEditsInputSchema` from `@argocut/agent-protocol`.
 - Produces: `AgentSession` (browser plus the active project id), `registerTools({ server, session })`, and a `serveStdio` entrypoint.
 
 **SDK shape (verified against `@modelcontextprotocol/server@2.0.0`):**
