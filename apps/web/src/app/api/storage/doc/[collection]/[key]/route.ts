@@ -1,4 +1,4 @@
-import { getDoc, removeDoc, setDoc } from "@/services/storage/server/file-store";
+import { getDoc, removeDoc, setDoc } from "@/services/storage/server/doc-store";
 
 export async function GET(
 	_request: Request,

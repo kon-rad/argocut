@@ -2,7 +2,7 @@ import {
 	clearDocs,
 	getAllDocs,
 	listDocs,
-} from "@/services/storage/server/file-store";
+} from "@/services/storage/server/doc-store";
 
 export async function GET(
 	request: Request,
