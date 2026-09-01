@@ -18,6 +18,7 @@ import { AddTrackCommand, InsertElementCommand } from "@/commands/timeline";
 import { BatchCommand } from "@/commands";
 import type { Command } from "@/commands/base-command";
 import { computeDropTarget } from "@/timeline/components/drop-target";
+import { getTrackEndTime } from "@/timeline/controllers/track-end-time";
 import type { TimelineDragSource } from "@/timeline/drag-source";
 import type {
 	TrackType,
@@ -315,7 +316,9 @@ export class DragDropController {
 		};
 	}
 
-	// Shared insertion logic — new track vs existing track.
+	// Shared insertion logic — new track vs existing track. Returns the
+	// trackId the element actually landed on, so multi-file drops can append
+	// later files of the same type to that same track.
 	private insertAtTarget({
 		element,
 		target,
@@ -324,7 +327,7 @@ export class DragDropController {
 		element: CreateTimelineElement;
 		target: DropTarget;
 		trackType: TrackType;
-	}): void {
+	}): string | null {
 		if (target.isNewTrack) {
 			const addTrackCmd = new AddTrackCommand({
 				type: trackType,
@@ -339,16 +342,17 @@ export class DragDropController {
 					}),
 				]),
 			);
-			return;
+			return addTrackCmd.getTrackId();
 		}
 
 		const tracks = orderedTracks({ sceneTracks: this.config.getSceneTracks() });
 		const track = tracks[target.trackIndex];
-		if (!track) return;
+		if (!track) return null;
 		this.config.insertElement({
 			placement: { mode: "explicit", trackId: track.id },
 			element,
 		});
+		return track.id;
 	}
 
 	private executeAssetDrop({
@@ -510,6 +514,16 @@ export class DragDropController {
 				// Sequential on purpose: each iteration reads getSceneTracks()
 				// to decide placement (reuse empty main vs new track) and that
 				// decision depends on the effects of prior inserts.
+				//
+				// Dropping several files at once must land them one after
+				// another on a single track, not each at the original drop
+				// point — `batchAnchorTrackId` remembers, per track type,
+				// which track the first file of that type landed on, so
+				// later files of the same type append after it instead of
+				// re-targeting the (by then stale) mouse position and
+				// colliding with the clip just placed there.
+				const batchAnchorTrackId = new Map<TrackType, string>();
+
 				for (const asset of processedAssets) {
 					const createdAsset = await this.config.addMediaAsset({
 						projectId,
@@ -520,6 +534,29 @@ export class DragDropController {
 					const duration = toElementDurationTicks({
 						seconds: createdAsset.duration,
 					});
+					const trackType: TrackType =
+						createdAsset.type === "audio" ? "audio" : "video";
+
+					const anchorTrackId = batchAnchorTrackId.get(trackType);
+					const anchorTrack = anchorTrackId
+						? orderedTracks({ sceneTracks: this.config.getSceneTracks() }).find(
+								(track) => track.id === anchorTrackId,
+							)
+						: undefined;
+
+					if (anchorTrack) {
+						this.config.insertElement({
+							placement: { mode: "explicit", trackId: anchorTrack.id },
+							element: buildElementFromMedia({
+								mediaId: createdAsset.id,
+								mediaType: createdAsset.type,
+								name: createdAsset.name,
+								duration,
+								startTime: getTrackEndTime({ track: anchorTrack }),
+							}),
+						});
+						continue;
+					}
 
 					const sceneTracks = this.config.getSceneTracks();
 					const currentTime = this.config.getCurrentPlayheadTime();
@@ -543,6 +580,7 @@ export class DragDropController {
 								startTime: currentTime,
 							}),
 						});
+						batchAnchorTrackId.set(trackType, reuseMainTrackId);
 						continue;
 					}
 
@@ -558,9 +596,7 @@ export class DragDropController {
 						zoomLevel: this.config.zoomLevel,
 					});
 
-					const trackType: TrackType =
-						createdAsset.type === "audio" ? "audio" : "video";
-					this.insertAtTarget({
+					const landedTrackId = this.insertAtTarget({
 						element: buildElementFromMedia({
 							mediaId: createdAsset.id,
 							mediaType: createdAsset.type,
@@ -571,6 +607,9 @@ export class DragDropController {
 						target: dropTarget,
 						trackType,
 					});
+					if (landedTrackId) {
+						batchAnchorTrackId.set(trackType, landedTrackId);
+					}
 				}
 
 				return {
