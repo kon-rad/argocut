@@ -169,8 +169,8 @@ export function MediaView() {
 					valueB = b.duration || 0;
 					break;
 				case "size":
-					valueA = a.file.size;
-					valueB = b.file.size;
+					valueA = a.size;
+					valueB = b.size;
 					break;
 				default:
 					return 0;

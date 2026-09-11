@@ -466,8 +466,8 @@ export class ProjectManager {
 
 					await Promise.all(
 						sourceMediaAssets.map((mediaAsset) =>
-							storageService.saveMediaAsset({
-								projectId: newProjectId,
+							storageService.copyMediaAsset({
+								destProjectId: newProjectId,
 								mediaAsset,
 							}),
 						),

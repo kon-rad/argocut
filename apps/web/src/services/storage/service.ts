@@ -311,7 +311,9 @@ class StorageService {
 		mediaAsset,
 	}: {
 		projectId: string;
-		mediaAsset: MediaAsset;
+		// Saving always originates from a freshly imported browser File — only
+		// loading an existing project can produce a video asset without one.
+		mediaAsset: MediaAsset & { file: File };
 	}): Promise<void> {
 		const { mediaMetadataAdapter, mediaAssetsAdapter } =
 			this.getProjectMediaAdapters({ projectId });
@@ -355,6 +357,71 @@ class StorageService {
 		}
 	}
 
+	/**
+	 * Copies one project's media asset into another project's storage.
+	 * Assets with an in-memory `file` (audio/image, or video in OPFS/local
+	 * mode) are re-saved directly. A server-streamed video — no `file` in
+	 * memory by design — is copied by piping its GET response straight into
+	 * a PUT to the destination, so a multi-GB clip is never buffered
+	 * client-side just to duplicate a project.
+	 */
+	async copyMediaAsset({
+		destProjectId,
+		mediaAsset,
+	}: {
+		destProjectId: string;
+		mediaAsset: MediaAsset;
+	}): Promise<void> {
+		if (mediaAsset.file) {
+			await this.saveMediaAsset({
+				projectId: destProjectId,
+				mediaAsset: mediaAsset as MediaAsset & { file: File },
+			});
+			return;
+		}
+
+		if (!mediaAsset.url) {
+			throw new Error(
+				`Media asset ${mediaAsset.id} has neither a file nor a url to copy from`,
+			);
+		}
+
+		const { mediaMetadataAdapter, mediaAssetsAdapter } =
+			this.getProjectMediaAdapters({ projectId: destProjectId });
+
+		if (!(mediaAssetsAdapter instanceof HttpBlobAdapter)) {
+			throw new Error(
+				"Copying a streamed video asset requires server storage mode",
+			);
+		}
+
+		const response = await fetch(mediaAsset.url);
+		if (!response.ok || !response.body) {
+			throw new Error(
+				`Reading source blob for ${mediaAsset.id} failed (${response.status})`,
+			);
+		}
+
+		const putResponse = await fetch(mediaAssetsAdapter.getUrl(mediaAsset.id), {
+			method: "PUT",
+			headers: {
+				"Content-Type":
+					response.headers.get("content-type") ?? "application/octet-stream",
+			},
+			body: response.body,
+			duplex: "half",
+		} as RequestInit);
+
+		if (!putResponse.ok) {
+			throw new Error(
+				`Writing copied blob for ${mediaAsset.id} failed (${putResponse.status})`,
+			);
+		}
+
+		const { file: _file, url: _url, ...metadata } = mediaAsset;
+		await mediaMetadataAdapter.set({ key: mediaAsset.id, value: metadata });
+	}
+
 	async loadMediaAsset({
 		projectId,
 		id,
@@ -365,12 +432,26 @@ class StorageService {
 		const { mediaMetadataAdapter, mediaAssetsAdapter } =
 			this.getProjectMediaAdapters({ projectId });
 
-		const [file, metadata] = await Promise.all([
-			mediaAssetsAdapter.get(id),
-			mediaMetadataAdapter.get(id),
-		]);
+		const metadata = await mediaMetadataAdapter.get(id);
+		if (!metadata) return null;
 
-		if (!file || !metadata) return null;
+		// Video is what runs to multi-GB. Read it lazily via a direct server URL
+		// (mediabunny's UrlSource streams over HTTP range requests) instead of
+		// downloading the whole clip into memory just to reconstruct a File.
+		// Audio/image assets stay eager — small enough that the simpler, uniform
+		// path isn't worth giving up.
+		if (
+			metadata.type === "video" &&
+			mediaAssetsAdapter instanceof HttpBlobAdapter
+		) {
+			return {
+				...metadata,
+				url: mediaAssetsAdapter.getUrl(id),
+			};
+		}
+
+		const file = await mediaAssetsAdapter.get(id);
+		if (!file) return null;
 
 		let url: string;
 		if (metadata.type === "image" && (!file.type || file.type === "")) {
@@ -390,16 +471,9 @@ class StorageService {
 		}
 
 		return {
-			id: metadata.id,
-			name: metadata.name,
-			type: metadata.type,
+			...metadata,
 			file,
 			url,
-			width: metadata.width,
-			height: metadata.height,
-			duration: metadata.duration,
-			thumbnailUrl: metadata.thumbnailUrl,
-			ephemeral: metadata.ephemeral,
 		};
 	}
 

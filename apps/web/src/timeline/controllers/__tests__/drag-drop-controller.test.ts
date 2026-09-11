@@ -100,6 +100,8 @@ describe("DragDropController — multi-file external drop", () => {
 					type: asset.type,
 					duration: asset.duration,
 					file: asset.file,
+					size: asset.size,
+					lastModified: asset.lastModified,
 				} satisfies MediaAsset;
 			},
 			executeCommand: () => {

@@ -91,6 +91,15 @@ export class HttpBlobAdapter implements StorageAdapter<File> {
 		return key === undefined ? base : `${base}/${encodeURIComponent(key)}`;
 	}
 
+	/**
+	 * The blob's direct, range-request-capable server URL, without fetching it.
+	 * Lets large media (video) be read via mediabunny's UrlSource instead of
+	 * `get()`, which would otherwise pull the whole file into memory first.
+	 */
+	getUrl(key: string): string {
+		return this.url(key);
+	}
+
 	async get(key: string): Promise<File | null> {
 		const response = await fetch(this.url(key));
 		if (response.status === 404) return null;

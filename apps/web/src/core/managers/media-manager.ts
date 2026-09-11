@@ -19,9 +19,9 @@ export class MediaManager {
 		asset,
 	}: {
 		projectId: string;
-		asset: Omit<MediaAsset, "id">;
+		asset: Omit<MediaAsset, "id"> & { file: File };
 	}): Promise<MediaAsset | null> {
-		const newAsset: MediaAsset = {
+		const newAsset: MediaAsset & { file: File } = {
 			...asset,
 			id: generateUUID(),
 		};

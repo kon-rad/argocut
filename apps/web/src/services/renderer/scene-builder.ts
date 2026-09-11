@@ -61,7 +61,9 @@ function buildTrackNodes({
 
 			if (element.type === "video" || element.type === "image") {
 				const mediaAsset = mediaMap.get(element.mediaId);
-				if (!mediaAsset?.file || !mediaAsset?.url) {
+				// Video needs only a url — server-stored clips stream via url
+				// without ever materializing a File (see sourceForMediaAsset).
+				if (!mediaAsset?.url) {
 					continue;
 				}
 
@@ -188,7 +190,6 @@ function buildBlurBackgroundNodes({
 
 		const mediaAsset = mediaMap.get(element.mediaId);
 		if (
-			!mediaAsset?.file ||
 			!mediaAsset?.url ||
 			(mediaAsset.type !== "video" && mediaAsset.type !== "image")
 		) {

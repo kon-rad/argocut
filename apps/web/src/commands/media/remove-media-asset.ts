@@ -91,9 +91,12 @@ export class RemoveMediaAssetCommand extends Command {
 		const editor = EditorCore.getInstance();
 
 		if (this.savedAssets && this.removedAsset) {
+			const removedFile = this.removedAsset.file;
 			const restoredAsset: MediaAsset = {
 				...this.removedAsset,
-				url: URL.createObjectURL(this.removedAsset.file),
+				url: removedFile
+					? URL.createObjectURL(removedFile)
+					: this.removedAsset.url,
 			};
 
 			editor.media.setAssets({
@@ -102,14 +105,22 @@ export class RemoveMediaAssetCommand extends Command {
 				),
 			});
 
-			storageService
-				.saveMediaAsset({
-					projectId: this.projectId,
-					mediaAsset: restoredAsset,
-				})
-				.catch((error) => {
-					console.error("Failed to restore media item on undo:", error);
-				});
+			// Server-streamed video has no local File to re-upload — its blob was
+			// already deleted by execute(), and there's nothing in memory to
+			// restore it from (that's the point: multi-GB clips are never fully
+			// buffered just so undo can re-upload them). The timeline element
+			// comes back regardless; if the blob is truly gone, playback surfaces
+			// that rather than undo silently failing here.
+			if (removedFile) {
+				storageService
+					.saveMediaAsset({
+						projectId: this.projectId,
+						mediaAsset: { ...restoredAsset, file: removedFile },
+					})
+					.catch((error) => {
+						console.error("Failed to restore media item on undo:", error);
+					});
+			}
 		}
 
 		if (this.savedTracks) {

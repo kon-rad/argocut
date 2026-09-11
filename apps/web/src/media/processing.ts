@@ -7,7 +7,10 @@ import { readVideoFile } from "./mediabunny";
 import type { VideoFileData } from "./mediabunny";
 import { renderThumbnailDataUrl } from "./thumbnail";
 
-export interface ProcessedMediaAsset extends Omit<MediaAsset, "id"> {}
+export interface ProcessedMediaAsset extends Omit<MediaAsset, "id"> {
+	// A freshly processed drop/import always has the real File in hand.
+	file: File;
+}
 
 const getUnsupportedVideoDescription = ({
 	codec,
@@ -167,6 +170,8 @@ export async function processMediaAssets({
 			processedAssets.push({
 				name: file.name,
 				type: fileType,
+				size: file.size,
+				lastModified: file.lastModified,
 				file,
 				url,
 				thumbnailUrl,

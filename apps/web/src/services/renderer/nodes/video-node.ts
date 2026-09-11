@@ -6,7 +6,9 @@ import {
 
 export interface VideoNodeParams extends VisualNodeParams {
 	url: string;
-	file: File;
+	// Absent for server-stored video (streamed via url instead) — present for
+	// freshly imported or OPFS/local-mode assets.
+	file?: File;
 	mediaId: string;
 }
 

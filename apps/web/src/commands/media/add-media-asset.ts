@@ -12,7 +12,7 @@ import { UpdateProjectSettingsCommand } from "@/commands/project";
 export class AddMediaAssetCommand extends Command {
 	private assetId: string;
 	private savedAssets: MediaAsset[] | null = null;
-	private createdAsset: MediaAsset | null = null;
+	private createdAsset: (MediaAsset & { file: File }) | null = null;
 	private previousProjectFps: FrameRate | null = null;
 	private appliedProjectFps: FrameRate | null = null;
 
@@ -21,7 +21,9 @@ export class AddMediaAssetCommand extends Command {
 		asset,
 	}: {
 		projectId: string;
-		asset: Omit<MediaAsset, "id">;
+		// Always constructed from a freshly pasted/dropped File — see
+		// use-paste-media.ts, the only caller.
+		asset: Omit<MediaAsset, "id"> & { file: File };
 	}) {
 		super();
 		this.projectId = projectId;
@@ -30,7 +32,7 @@ export class AddMediaAssetCommand extends Command {
 	}
 
 	private projectId: string;
-	private asset: Omit<MediaAsset, "id">;
+	private asset: Omit<MediaAsset, "id"> & { file: File };
 
 	execute(): CommandResult | undefined {
 		const editor = EditorCore.getInstance();

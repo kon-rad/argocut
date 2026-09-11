@@ -19,7 +19,8 @@ import { canElementHaveAudio, hasMediaId } from "@/timeline/element-utils";
 import { canTrackHaveAudio } from "@/timeline";
 import { mediaSupportsAudio } from "@/media/media-utils";
 import { getSourceTimeAtClipTime, renderRetimedBuffer } from "@/retime";
-import { Input, ALL_FORMATS, BlobSource, AudioBufferSink } from "mediabunny";
+import { Input, ALL_FORMATS, AudioBufferSink } from "mediabunny";
+import { sourceForMediaAsset } from "@/media/source";
 import { TICKS_PER_SECOND } from "@/wasm";
 import {
 	computeRmsBuckets,
@@ -253,6 +254,7 @@ async function resolveAudioBufferForAsset({
 	audioContext: AudioContext;
 }): Promise<AudioBuffer | null> {
 	if (asset.type === "audio") {
+		if (!asset.file) return null;
 		try {
 			const arrayBuffer = await asset.file.arrayBuffer();
 			return await audioContext.decodeAudioData(arrayBuffer.slice(0));
@@ -263,7 +265,7 @@ async function resolveAudioBufferForAsset({
 	}
 
 	const input = new Input({
-		source: new BlobSource(asset.file),
+		source: sourceForMediaAsset({ file: asset.file, url: asset.url }),
 		formats: ALL_FORMATS,
 	});
 
@@ -340,7 +342,9 @@ async function resolveAudioBufferForAsset({
 
 interface AudioMixSource {
 	timelineElement: AudioCapableElement;
-	file: File;
+	// Absent for server-stored video (streamed via url instead).
+	file?: File;
+	url?: string;
 	startTime: number;
 	duration: number;
 	trimStart: number;
@@ -353,7 +357,9 @@ export interface AudioClipSource {
 	timelineElement: AudioCapableElement;
 	id: string;
 	sourceKey: string;
-	file: File;
+	// Absent for server-stored video (streamed via url instead).
+	file?: File;
+	url?: string;
 	startTime: number;
 	duration: number;
 	trimStart: number;
@@ -448,6 +454,7 @@ function collectMediaAudioSource({
 	return {
 		timelineElement: element,
 		file: mediaAsset.file,
+		url: mediaAsset.url,
 		startTime: element.startTime / TICKS_PER_SECOND,
 		duration: element.duration / TICKS_PER_SECOND,
 		trimStart: element.trimStart / TICKS_PER_SECOND,
@@ -473,6 +480,7 @@ function collectMediaAudioClip({
 		id: element.id,
 		sourceKey: mediaAsset.id,
 		file: mediaAsset.file,
+		url: mediaAsset.url,
 		startTime: element.startTime / TICKS_PER_SECOND,
 		duration: element.duration / TICKS_PER_SECOND,
 		trimStart: element.trimStart / TICKS_PER_SECOND,
