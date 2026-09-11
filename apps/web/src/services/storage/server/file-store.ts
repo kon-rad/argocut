@@ -1,8 +1,20 @@
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
-import { mkdir, open, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { createWriteStream, existsSync } from "node:fs";
+import {
+	mkdir,
+	open,
+	readFile,
+	readdir,
+	rename,
+	rm,
+	stat,
+	writeFile,
+} from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
+import { pipeline } from "node:stream/promises";
 
 /**
  * Server-side storage for ArgoCut projects and media.
@@ -228,14 +240,33 @@ export async function setBlob({
 }: {
 	bucket: string;
 	key: string;
-	data: ArrayBuffer;
+	// Media files run to hundreds of megabytes or several gigabytes, so the
+	// body is streamed straight to disk rather than buffered into an
+	// ArrayBuffer first — buffering held the whole file in server memory
+	// (twice, once as the fetch body and once as a Buffer copy) before a
+	// single write, which is what made large uploads slow and memory-hungry.
+	data: ReadableStream<Uint8Array> | null;
 	contentType?: string;
 }): Promise<void> {
 	const dir = blobDir({ bucket });
 	await mkdir(dir, { recursive: true });
 	const encoded = encodeKey({ key });
 	const path = withinRoot({ path: join(dir, encoded) });
-	await writeFile(path, Buffer.from(data));
+
+	// Write-then-rename: a client disconnect or crash mid-upload leaves the
+	// previous blob (or nothing) intact rather than a truncated media file.
+	const temporary = `${path}.tmp`;
+	if (data) {
+		await pipeline(
+			Readable.fromWeb(data as unknown as WebReadableStream<Uint8Array>),
+			createWriteStream(temporary),
+		);
+	} else {
+		await writeFile(temporary, Buffer.alloc(0));
+	}
+	await rm(path, { force: true });
+	await rename(temporary, path);
+
 	await rememberKey({ dir, encoded, key });
 
 	// A video served as application/octet-stream will not play, so the real type

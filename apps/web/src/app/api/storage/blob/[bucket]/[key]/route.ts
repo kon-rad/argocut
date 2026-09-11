@@ -87,7 +87,7 @@ export async function PUT(
 		await setBlob({
 			bucket,
 			key: decodeURIComponent(key),
-			data: await request.arrayBuffer(),
+			data: request.body,
 			contentType: request.headers.get("content-type") ?? undefined,
 		});
 		return new Response(null, { status: 204 });
