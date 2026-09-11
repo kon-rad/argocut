@@ -140,10 +140,12 @@ export class RendererManager {
 
 	async exportProject({
 		options,
+		writable,
 		onProgress,
 		onCancel,
 	}: {
 		options: ExportOptions;
+		writable?: FileSystemWritableFileStream;
 		onProgress?: ({ progress }: { progress: number }) => void;
 		onCancel?: () => boolean;
 	}): Promise<ExportResult> {
@@ -192,6 +194,7 @@ export class RendererManager {
 				quality,
 				shouldIncludeAudio: !!includeAudio,
 				audioBuffer: audioBuffer || undefined,
+				writable,
 			});
 
 			exporter.on("progress", (progress) => {
@@ -219,13 +222,15 @@ export class RendererManager {
 					return { success: false, cancelled: true };
 				}
 
-				if (!buffer) {
+				// With a `writable` target the file was streamed straight to disk, so a
+				// null buffer here is the expected outcome, not a failure.
+				if (!buffer && !writable) {
 					return { success: false, error: "Export failed to produce buffer" };
 				}
 
 				return {
 					success: true,
-					buffer,
+					buffer: buffer ?? undefined,
 				};
 			} finally {
 				clearInterval(cancelInterval);

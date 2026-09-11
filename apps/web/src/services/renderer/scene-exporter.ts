@@ -5,6 +5,7 @@ import {
 	Mp4OutputFormat,
 	WebMOutputFormat,
 	BufferTarget,
+	StreamTarget,
 	CanvasSource,
 	AudioBufferSource,
 	QUALITY_LOW,
@@ -28,6 +29,12 @@ type ExportParams = {
 	quality: ExportQuality;
 	shouldIncludeAudio?: boolean;
 	audioBuffer?: AudioBuffer;
+	// When provided, the muxed output is streamed straight to this file as it's
+	// encoded instead of accumulating in an in-memory ArrayBuffer. Long or
+	// high-resolution exports can easily exceed a few GB, which is exactly what
+	// BufferTarget's own docs warn it isn't suitable for ("Array buffer
+	// allocation failed" is that ceiling being hit).
+	writable?: FileSystemWritableFileStream;
 };
 
 const qualityMap = {
@@ -39,7 +46,7 @@ const qualityMap = {
 
 export type SceneExporterEvents = {
 	progress: [progress: number];
-	complete: [buffer: ArrayBuffer];
+	complete: [buffer: ArrayBuffer | null];
 	error: [error: Error];
 	cancelled: [];
 };
@@ -50,6 +57,7 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 	private quality: ExportQuality;
 	private shouldIncludeAudio: boolean;
 	private audioBuffer?: AudioBuffer;
+	private writable?: FileSystemWritableFileStream;
 
 	private isCancelled = false;
 
@@ -61,6 +69,7 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		quality,
 		shouldIncludeAudio,
 		audioBuffer,
+		writable,
 	}: ExportParams) {
 		super();
 		this.renderer = new CanvasRenderer({
@@ -73,6 +82,7 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		this.quality = quality;
 		this.shouldIncludeAudio = shouldIncludeAudio ?? false;
 		this.audioBuffer = audioBuffer;
+		this.writable = writable;
 	}
 
 	cancel(): void {
@@ -94,9 +104,13 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		const outputFormat =
 			this.format === "webm" ? new WebMOutputFormat() : new Mp4OutputFormat();
 
+		const target = this.writable
+			? new StreamTarget(this.writable)
+			: new BufferTarget();
+
 		const output = new Output({
 			format: outputFormat,
-			target: new BufferTarget(),
+			target,
 		});
 
 		const videoSource = new CanvasSource(this.renderer.getOutputCanvas(), {
@@ -159,7 +173,15 @@ export class SceneExporter extends EventEmitter<SceneExporterEvents> {
 		await output.finalize();
 		this.emit("progress", 1);
 
-		const buffer = output.target.buffer;
+		// A StreamTarget writes directly to `this.writable` as it encodes and
+		// closes it on finalize — there is no buffer to hand back, and that's
+		// success, not failure.
+		if (target instanceof StreamTarget) {
+			this.emit("complete", null);
+			return null;
+		}
+
+		const buffer = target.buffer;
 		if (!buffer) {
 			this.emit("error", new Error("Failed to export video"));
 			return null;

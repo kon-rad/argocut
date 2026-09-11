@@ -209,13 +209,20 @@ export class ProjectManager {
 		}
 	}
 
-	async export({ options }: { options: ExportOptions }): Promise<ExportResult> {
+	async export({
+		options,
+		writable,
+	}: {
+		options: ExportOptions;
+		writable?: FileSystemWritableFileStream;
+	}): Promise<ExportResult> {
 		this.exportCancelRequested = false;
 		this.exportState = { isExporting: true, progress: 0, result: null };
 		this.notify();
 
 		const result = await this.editor.renderer.exportProject({
 			options,
+			writable,
 			onProgress: ({ progress }) => {
 				this.exportState = { ...this.exportState, progress };
 				this.notify();

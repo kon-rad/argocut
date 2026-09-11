@@ -114,6 +114,41 @@ function ExportPopover({
 	const handleExport = async () => {
 		if (!activeProject) return;
 
+		const filename = `${activeProject.metadata.name}${getExportFileExtension({ format })}`;
+
+		// When the browser supports it, write the export straight to disk as it
+		// encodes instead of assembling the whole file in memory first — large or
+		// long exports can easily run into multiple GB, which is what caused
+		// "Array buffer allocation failed". Must be requested here, synchronously
+		// within the click handler, since it needs user activation.
+		let writable: FileSystemWritableFileStream | undefined;
+		if (typeof window.showSaveFilePicker === "function") {
+			try {
+				const handle = await window.showSaveFilePicker({
+					suggestedName: filename,
+					types: [
+						{
+							description:
+								format === "mp4" ? "MP4 video" : "WebM video",
+							accept: {
+								[getExportMimeType({ format })]: [
+									getExportFileExtension({ format }),
+								],
+							},
+						},
+					],
+				});
+				writable = await handle.createWritable();
+			} catch (error) {
+				if (error instanceof DOMException && error.name === "AbortError") {
+					return;
+				}
+				// Picker unavailable/denied for some other reason — fall back to
+				// the in-memory export path below.
+				writable = undefined;
+			}
+		}
+
 		const result = await editor.project.export({
 			options: {
 				format,
@@ -121,19 +156,30 @@ function ExportPopover({
 				fps: activeProject.settings.fps,
 				includeAudio: shouldIncludeAudio,
 			},
+			writable,
 		});
+
+		// A picked file becomes an open, empty stream immediately, before the
+		// exporter ever runs. If export ended without the exporter touching it
+		// (e.g. rejected for an empty project before reaching SceneExporter),
+		// release it rather than leaving a dangling handle.
+		if (!result.success && writable) {
+			await writable.abort().catch(() => {});
+		}
 
 		if (result.cancelled) {
 			editor.project.clearExportState();
 			return;
 		}
 
-		if (result.success && result.buffer) {
-			downloadBuffer({
-				buffer: result.buffer,
-				filename: `${activeProject.metadata.name}${getExportFileExtension({ format })}`,
-				mimeType: getExportMimeType({ format }),
-			});
+		if (result.success) {
+			if (result.buffer) {
+				downloadBuffer({
+					buffer: result.buffer,
+					filename,
+					mimeType: getExportMimeType({ format }),
+				});
+			}
 
 			editor.project.clearExportState();
 			onOpenChange(false);
