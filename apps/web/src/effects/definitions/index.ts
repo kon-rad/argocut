@@ -1,7 +1,8 @@
 import { effectsRegistry } from "../registry";
 import { blurEffectDefinition } from "./blur";
+import { colorGradingEffectDefinition } from "./color-grading";
 
-const defaultEffects = [blurEffectDefinition];
+const defaultEffects = [blurEffectDefinition, colorGradingEffectDefinition];
 
 export function registerDefaultEffects(): void {
 	for (const definition of defaultEffects) {

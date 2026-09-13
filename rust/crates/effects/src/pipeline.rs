@@ -9,6 +9,8 @@ use crate::{EffectPass, UniformValue};
 
 const GAUSSIAN_BLUR_SHADER_ID: &str = "gaussian-blur";
 const GAUSSIAN_BLUR_SHADER_SOURCE: &str = include_str!("shaders/gaussian_blur.wgsl");
+const COLOR_GRADING_SHADER_ID: &str = "color-grading";
+const COLOR_GRADING_SHADER_SOURCE: &str = include_str!("shaders/color_grading.wgsl");
 
 pub struct ApplyEffectsOptions<'a> {
     pub source: &'a wgpu::Texture,
@@ -52,6 +54,17 @@ struct EffectUniformBuffer {
     scalars: [f32; 4],
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Pod, Zeroable)]
+struct ColorGradingUniformBuffer {
+    resolution: [f32; 2],
+    _padding: [f32; 2],
+    /// brightness, contrast, saturation, temperature
+    params_a: [f32; 4],
+    /// tint, highlights, shadows, vignette
+    params_b: [f32; 4],
+}
+
 impl EffectPipeline {
     pub fn new(context: &GpuContext) -> Self {
         let uniform_bind_group_layout =
@@ -83,6 +96,13 @@ impl EffectPipeline {
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("effects-gaussian-blur-shader"),
                     source: wgpu::ShaderSource::Wgsl(GAUSSIAN_BLUR_SHADER_SOURCE.into()),
+                });
+        let color_grading_shader_module =
+            context
+                .device()
+                .create_shader_module(wgpu::ShaderModuleDescriptor {
+                    label: Some("effects-color-grading-shader"),
+                    source: wgpu::ShaderSource::Wgsl(COLOR_GRADING_SHADER_SOURCE.into()),
                 });
         let pipeline_layout =
             context
@@ -131,8 +151,46 @@ impl EffectPipeline {
                     multiview_mask: None,
                     cache: None,
                 });
-        let pipelines =
-            HashMap::from([(GAUSSIAN_BLUR_SHADER_ID.to_string(), gaussian_blur_pipeline)]);
+        let color_grading_pipeline =
+            context
+                .device()
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("effects-color-grading-pipeline"),
+                    layout: Some(&pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &vertex_shader_module,
+                        entry_point: Some("vertex_main"),
+                        buffers: &[wgpu::VertexBufferLayout {
+                            array_stride: std::mem::size_of::<[f32; 2]>() as u64,
+                            step_mode: wgpu::VertexStepMode::Vertex,
+                            attributes: &[wgpu::VertexAttribute {
+                                format: wgpu::VertexFormat::Float32x2,
+                                offset: 0,
+                                shader_location: 0,
+                            }],
+                        }],
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &color_grading_shader_module,
+                        entry_point: Some("fragment_main"),
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: context.texture_format(),
+                            blend: None,
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: wgpu::PipelineCompilationOptions::default(),
+                    }),
+                    primitive: wgpu::PrimitiveState::default(),
+                    depth_stencil: None,
+                    multisample: wgpu::MultisampleState::default(),
+                    multiview_mask: None,
+                    cache: None,
+                });
+        let pipelines = HashMap::from([
+            (GAUSSIAN_BLUR_SHADER_ID.to_string(), gaussian_blur_pipeline),
+            (COLOR_GRADING_SHADER_ID.to_string(), color_grading_pipeline),
+        ]);
 
         Self {
             uniform_bind_group_layout,
@@ -206,12 +264,25 @@ impl EffectPipeline {
                             },
                         ],
                     });
+            let uniform_bytes: Vec<u8> = match pass.shader.as_str() {
+                GAUSSIAN_BLUR_SHADER_ID => {
+                    bytemuck::bytes_of(&pack_gaussian_blur_uniforms(pass, width, height)?).to_vec()
+                }
+                COLOR_GRADING_SHADER_ID => {
+                    bytemuck::bytes_of(&pack_color_grading_uniforms(pass, width, height)?).to_vec()
+                }
+                other => {
+                    return Err(EffectsError::UnknownEffectShader {
+                        shader: other.to_string(),
+                    });
+                }
+            };
             let uniform_buffer =
                 context
                     .device()
                     .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                         label: Some("effects-uniform-buffer"),
-                        contents: bytemuck::bytes_of(&pack_effect_uniforms(pass, width, height)?),
+                        contents: &uniform_bytes,
                         usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                     });
             let uniform_bind_group =
@@ -262,7 +333,7 @@ impl EffectPipeline {
     }
 }
 
-fn pack_effect_uniforms(
+fn pack_gaussian_blur_uniforms(
     pass: &EffectPass,
     width: u32,
     height: u32,
@@ -286,6 +357,46 @@ fn pack_effect_uniforms(
         resolution: [width as f32, height as f32],
         direction,
         scalars: [sigma, step, 0.0, 0.0],
+    })
+}
+
+const COLOR_GRADING_UNIFORM_KEYS: [&str; 8] = [
+    "u_brightness",
+    "u_contrast",
+    "u_saturation",
+    "u_temperature",
+    "u_tint",
+    "u_highlights",
+    "u_shadows",
+    "u_vignette",
+];
+
+fn pack_color_grading_uniforms(
+    pass: &EffectPass,
+    width: u32,
+    height: u32,
+) -> Result<ColorGradingUniformBuffer, EffectsError> {
+    let shader = pass.shader.as_str();
+
+    for uniform in pass.uniforms.keys() {
+        if !COLOR_GRADING_UNIFORM_KEYS.contains(&uniform.as_str()) {
+            return Err(EffectsError::UnsupportedUniform {
+                shader: shader.to_string(),
+                uniform: uniform.clone(),
+            });
+        }
+    }
+
+    let mut values = [0.0f32; 8];
+    for (index, key) in COLOR_GRADING_UNIFORM_KEYS.iter().enumerate() {
+        values[index] = read_number_uniform(pass, key)?;
+    }
+
+    Ok(ColorGradingUniformBuffer {
+        resolution: [width as f32, height as f32],
+        _padding: [0.0, 0.0],
+        params_a: [values[0], values[1], values[2], values[3]],
+        params_b: [values[4], values[5], values[6], values[7]],
     })
 }
 
@@ -327,4 +438,95 @@ fn read_vec2_uniform(pass: &EffectPass, uniform: &str) -> Result<[f32; 2], Effec
         });
     }
     Ok([values[0], values[1]])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn number_uniforms(pairs: &[(&str, f32)]) -> HashMap<String, UniformValue> {
+        pairs
+            .iter()
+            .map(|(key, value)| (key.to_string(), UniformValue::Number(*value)))
+            .collect()
+    }
+
+    #[test]
+    fn packs_all_color_grading_params_in_declared_order() {
+        let pass = EffectPass {
+            shader: COLOR_GRADING_SHADER_ID.to_string(),
+            uniforms: number_uniforms(&[
+                ("u_brightness", 0.1),
+                ("u_contrast", 0.2),
+                ("u_saturation", 0.3),
+                ("u_temperature", 0.4),
+                ("u_tint", 0.5),
+                ("u_highlights", 0.6),
+                ("u_shadows", 0.7),
+                ("u_vignette", 0.8),
+            ]),
+        };
+
+        let packed = pack_color_grading_uniforms(&pass, 1920, 1080).unwrap();
+
+        assert_eq!(packed.resolution, [1920.0, 1080.0]);
+        assert_eq!(packed.params_a, [0.1, 0.2, 0.3, 0.4]);
+        assert_eq!(packed.params_b, [0.5, 0.6, 0.7, 0.8]);
+    }
+
+    #[test]
+    fn errors_on_missing_color_grading_uniform() {
+        let pass = EffectPass {
+            shader: COLOR_GRADING_SHADER_ID.to_string(),
+            uniforms: number_uniforms(&[
+                ("u_brightness", 0.1),
+                ("u_saturation", 0.3),
+                ("u_temperature", 0.4),
+                ("u_tint", 0.5),
+                ("u_highlights", 0.6),
+                ("u_shadows", 0.7),
+                ("u_vignette", 0.8),
+            ]),
+        };
+
+        let result = pack_color_grading_uniforms(&pass, 1920, 1080);
+
+        assert!(matches!(
+            result,
+            Err(EffectsError::MissingUniform { uniform, .. }) if uniform == "u_contrast"
+        ));
+    }
+
+    #[test]
+    fn errors_on_unsupported_color_grading_uniform() {
+        let mut map = number_uniforms(&[
+            ("u_brightness", 0.1),
+            ("u_contrast", 0.2),
+            ("u_saturation", 0.3),
+            ("u_temperature", 0.4),
+            ("u_tint", 0.5),
+            ("u_highlights", 0.6),
+            ("u_shadows", 0.7),
+            ("u_vignette", 0.8),
+        ]);
+        map.insert("u_sigma".to_string(), UniformValue::Number(1.0));
+        let pass = EffectPass {
+            shader: COLOR_GRADING_SHADER_ID.to_string(),
+            uniforms: map,
+        };
+
+        let result = pack_color_grading_uniforms(&pass, 1920, 1080);
+
+        assert!(matches!(
+            result,
+            Err(EffectsError::UnsupportedUniform { uniform, .. }) if uniform == "u_sigma"
+        ));
+    }
+
+    #[test]
+    fn color_grading_shader_source_is_valid_wgsl() {
+        naga::front::wgsl::parse_str(COLOR_GRADING_SHADER_SOURCE)
+            .expect("color_grading.wgsl should parse as valid WGSL");
+    }
 }

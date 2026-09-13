@@ -4,6 +4,37 @@ Running record of what changed, why, and what it cost. Newest first.
 
 ---
 
+## 2026-09-13 — Color Grading, and generalizing the effects uniform pipeline
+
+Added Color Grading as a built-in effect (brightness, contrast, saturation,
+temperature, tint, highlights, shadows, vignette) exposed through the
+Adjustment tab — previously a `"coming soon"` placeholder in the assets
+panel. Full writeup: [`docs/color-grading.md`](./color-grading.md).
+
+The part worth flagging for anyone touching `rust/crates/effects` next: the
+GPU uniform-packing code (`pack_effect_uniforms` in `pipeline.rs`) was
+**not** actually generic before this — it always assumed blur's uniform
+shape (`u_sigma`/`u_step`/`u_direction`) regardless of which shader a pass
+claimed to use, because there was only ever one shader to test it against.
+Adding a second effect exposed that. It's now `pack_gaussian_blur_uniforms`
+and `pack_color_grading_uniforms`, dispatched by `pass.shader.as_str()` in
+`apply_with_encoder`, each with its own `Pod` struct — see
+[`effects-renderer.md`'s "Per-shader uniform buffers" section](./effects-renderer.md#per-shader-uniform-buffers).
+A 3rd effect should follow that pattern, not try to widen either existing
+struct.
+
+Also added a `naga`-based WGSL syntax test (`cargo test -p effects`) —
+catches a broken shader at `cargo test` time instead of a blank/black
+frame in the browser.
+
+`wasm-pack` was not installed in this environment; installed it
+(`cargo install wasm-pack`) to actually build and browser-test the shader
+change rather than trusting it on faith. Local-build-vs-published-package
+symlink swap for `opencut-wasm` is documented in `color-grading.md` since
+it's not obvious and will come up again for any future Rust/WASM change.
+
+---
+
 ## 2026-08-27 — Postgres, Brands, and the rebrand
 
 Three things landed together: editor documents moved into Postgres, a Brands

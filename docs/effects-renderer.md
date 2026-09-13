@@ -2,9 +2,10 @@
 
 ## How to add a new effect
 
-1. Create a new file in `apps/web/src/lib/effects/definitions/` (e.g. `brightness.ts`)
-2. Export an `EffectDefinition` — see `blur.ts` as a reference
-3. Register it in `apps/web/src/lib/effects/definitions/index.ts`
+1. Create a new file in `apps/web/src/effects/definitions/` (e.g. `brightness.ts`)
+2. Export an `EffectDefinition` — see `blur.ts` or `color-grading.ts` as a reference
+3. Register it in `apps/web/src/effects/definitions/index.ts`
+4. If the effect needs new GPU math (most will), follow [Writing shaders](#writing-shaders) and [Per-shader uniform buffers](#per-shader-uniform-buffers) below — a new effect definition alone has nothing to render until its shader and Rust-side uniform packer exist too.
 
 An effect definition has:
 - `type` — unique string identifier
@@ -47,7 +48,7 @@ When `buildPasses` is present, all rendering paths use it instead of the static 
 All code that consumes effect passes should go through the helper, never access `definition.renderer.passes` directly:
 
 ```typescript
-import { resolveEffectPasses } from "@/lib/effects";
+import { resolveEffectPasses } from "@/effects";
 
 const passes = resolveEffectPasses({ definition, effectParams, width, height });
 ```
@@ -59,20 +60,24 @@ This handles the `buildPasses` vs static `passes` dispatch automatically.
 Linear effect chains go through `gpuRenderer.applyEffect()` in `apps/web/src/services/renderer/gpu-renderer.ts`.
 
 TypeScript resolves `EffectPass[]` from effect definitions. Each pass contains:
-- `shader` — a stable identifier such as `"gaussian-blur"`
-- `uniforms` — resolved numeric values for that pass
+- `shader` — a stable identifier such as `"gaussian-blur"` or `"color-grading"`
+- `uniforms` — resolved numeric values for that pass, keyed by name (e.g. `u_sigma`, `u_brightness`)
 
-Rust maps the shader identifier to a precompiled WGSL pipeline in `rust/crates/gpu/src/shader_registry.rs`. Non-linear GPU work such as signed-distance-field generation and mask feathering lives in dedicated Rust pipeline modules, not in TypeScript orchestration.
+Rust owns everything from here: `rust/crates/effects/src/pipeline.rs` (`EffectPipeline`) holds one `wgpu::RenderPipeline` per shader identifier in a `HashMap`, built once in `EffectPipeline::new`. `apply_with_encoder` loops over the passes, and for each one matches `pass.shader.as_str()` to pick both the right render pipeline and the right uniform packer (see below) — there is no generic "one struct fits all shaders" path; each shader gets its own. Non-linear GPU work such as signed-distance-field generation and mask feathering lives in the `masks` crate's own pipeline modules, following the same shape.
 
 ## Writing shaders
 
-Effect-specific WGSL shaders live in `rust/crates/gpu/src/shaders/`. Add the shader file there, then register its identifier in `rust/crates/gpu/src/shader_registry.rs`.
+Two crates hold WGSL:
+- `rust/crates/gpu/src/shaders/` — shared shaders used by every effect: `fullscreen.wgsl` (the vertex shader, outputs `VertexOutput { position, tex_coord }`) and `blit.wgsl`.
+- `rust/crates/effects/src/shaders/` — one fragment shader per effect (`gaussian_blur.wgsl`, `color_grading.wgsl`, …).
 
-Available uniforms (automatically injected, no need to pass them manually):
-- `u_texture` — the input texture (sampler2D)
-- `u_resolution` — canvas size in pixels (vec2)
+To add a shader: create the `.wgsl` file in `rust/crates/effects/src/shaders/`, `include_str!` it as a `const ..._SHADER_SOURCE` in `pipeline.rs`, and register a render pipeline for it in `EffectPipeline::new` (copy the `color_grading_pipeline` block — same `pipeline_layout`, same `fullscreen.wgsl` vertex stage, just your shader module in the fragment stage). Add its `(SHADER_ID, pipeline)` pair to the `pipelines` `HashMap::from([...])`.
 
-Any additional uniforms come from the `uniforms()` function in the pass definition.
+Every effect fragment shader binds the same two groups:
+- `@group(0) @binding(0) input_texture: texture_2d<f32>` and `@binding(1) input_sampler: sampler` — the source frame, wired automatically by `apply_with_encoder`.
+- `@group(1) @binding(0) var<uniform> uniforms: EffectUniforms` — **your** per-shader uniform struct. There is no shared/injected uniform name like `u_texture` or `u_resolution` — the input texture is a plain bind-group resource, and resolution (when a shader needs it) is just a field you put in your own `EffectUniforms` struct, as `color_grading.wgsl` does.
+
+Any uniform your `uniforms()` pass-template function returns must have a matching field in your shader's `EffectUniforms` struct **and** in its Rust-side packer (next section) — the three have to agree by hand, nothing derives one from another.
 
 **Sampling density and step scaling**
 
@@ -90,6 +95,20 @@ color += textureSample(input_texture, input_sampler, uv + texel_size * uniforms.
 ```
 
 Do **not** use large step sizes (>6) in a single pass — it creates visible banding regardless of bilinear interpolation. Use multiple iterations instead.
+
+## Per-shader uniform buffers
+
+Each shader packs its own `#[repr(C)] #[derive(Clone, Copy, Pod, Zeroable)]` struct in `pipeline.rs` — there is deliberately no single shared uniform layout. `EffectUniformBuffer` (blur: resolution, direction, 4 scalars) and `ColorGradingUniformBuffer` (color grading: resolution, padding, 2× 4-param groups) are siblings, not variants of one type.
+
+**WGSL alignment gotcha:** a raw `array<f32, N>` inside a `var<uniform>` struct pads every element to 16 bytes (the uniform-address-space array stride rule) — so packing 4 scalars as `array<f32, 4>` costs 64 bytes, not 16, and silently desyncs from a tightly-packed Rust `[f32; 4]`. Always group scalars into `vec4f` in WGSL (`color_grading.wgsl`'s `params_a: vec4f` / `params_b: vec4f`) to match a plain `[f32; 4]` field on the Rust side byte-for-byte.
+
+To add a new effect's uniforms:
+
+1. Add the struct next to the others (see `ColorGradingUniformBuffer`).
+2. Add a `pack_<effect>_uniforms(pass, width, height) -> Result<YourStruct, EffectsError>` function. Follow `pack_color_grading_uniforms`'s shape if your effect has more than 2-3 named scalars: declare a `const YOUR_EFFECT_UNIFORM_KEYS: [&str; N]`, reject any uniform key not in that list (`EffectsError::UnsupportedUniform`), then read each with `read_number_uniform` (`EffectsError::MissingUniform` if absent). Use `pack_gaussian_blur_uniforms`'s shape instead if your effect has a handful of named fields with different meanings (a `read_vec2_uniform`-style direction, etc.) rather than a flat list.
+3. Add your shader's ID to the `match pass.shader.as_str()` block in `apply_with_encoder` (the `uniform_bytes` match) so it calls your packer.
+4. Write Rust unit tests for the packer (packs correctly, missing uniform errors, unsupported uniform errors) — see the `pipeline::tests` module for the color-grading examples to copy.
+5. Add a `naga::front::wgsl::parse_str(YOUR_SHADER_SOURCE).expect(...)` test alongside them. `naga` (the crate `wgpu` itself uses to validate WGSL) is a `[dev-dependencies]` entry in `rust/crates/effects/Cargo.toml` for exactly this — it catches shader syntax errors in `cargo test`, before you ever load the page.
 
 ## Coordinate systems
 
