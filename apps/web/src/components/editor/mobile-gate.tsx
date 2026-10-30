@@ -6,6 +6,7 @@ import { Button } from "../ui/button";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
 import { useRouter } from "next/navigation";
+import { SOCIAL_LINKS } from "@/site/social";
 
 const STORAGE_KEY = "mobile-acknowledged";
 
@@ -60,8 +61,13 @@ export function MobileGate({ children }: MobileGateProps) {
 				<div className="flex items-center gap-3">
 					<Button onClick={handleContinue}>Take a look anyway</Button>
 					<Button variant="ghost" asChild>
-						<Link href="/roadmap" className="flex items-center gap-1">
-							Roadmap
+						<Link
+							href={SOCIAL_LINKS.github}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="flex items-center gap-1"
+						>
+							GitHub
 							<HugeiconsIcon icon={ArrowRight01Icon} size={14} />
 						</Link>
 					</Button>

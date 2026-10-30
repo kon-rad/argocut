@@ -494,9 +494,13 @@ impl Compositor {
         let mut current = self.copy_texture(context, encoder, source, width, height);
         for group in effect_pass_groups {
             let passes = map_effect_passes(group);
+            let texture_pool = &mut self.texture_pool;
             current = self.effects.apply_with_encoder(
                 context,
                 encoder,
+                &mut |width, height| {
+                    texture_pool.acquire(context, width, height, "effects-pass-output")
+                },
                 ApplyEffectsOptions {
                     source: &current,
                     width,

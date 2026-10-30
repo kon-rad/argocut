@@ -23,6 +23,7 @@ pub struct CanvasClearDescriptor {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum FrameItemDescriptor {
     Layer(LayerDescriptor),
+    #[serde(rename_all = "camelCase")]
     SceneEffect {
         effect_pass_groups: Vec<Vec<EffectPassDescriptor>>,
     },
@@ -72,6 +73,25 @@ pub struct EffectPassDescriptor {
 pub enum EffectUniformValueDescriptor {
     Number(f32),
     Vector(Vec<f32>),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scene_effect_deserializes_from_camel_case_json() {
+        let json = serde_json::json!({
+            "type": "sceneEffect",
+            "effectPassGroups": [[{ "shader": "colorGrading", "uniforms": {} }]]
+        });
+
+        let result: Result<FrameItemDescriptor, _> = serde_json::from_value(json);
+        assert!(
+            result.is_ok(),
+            "expected camelCase effectPassGroups to deserialize, got: {result:?}"
+        );
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

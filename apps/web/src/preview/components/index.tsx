@@ -213,6 +213,20 @@ function PreviewCanvas({
 
 	useRafLoop(render);
 
+	// requestAnimationFrame is fully suspended by the browser for backgrounded
+	// tabs, so a headless/agent-driven edit to a tab the human has switched
+	// away from would never repaint. setInterval keeps running (throttled, not
+	// stopped) while hidden, so this keeps the canvas honest for anyone
+	// reading it — e.g. an automation tool taking a screenshot — while the tab
+	// is out of focus. render() itself already no-ops when nothing changed, so
+	// this is safe to fire redundantly alongside the rAF loop.
+	useEffect(() => {
+		const id = setInterval(() => {
+			if (document.hidden) render();
+		}, 300);
+		return () => clearInterval(id);
+	}, [render]);
+
 	useEffect(() => {
 		const container = viewportRef.current;
 		if (!container) return;

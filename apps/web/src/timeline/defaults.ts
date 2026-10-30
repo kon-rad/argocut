@@ -14,6 +14,7 @@ const defaultTransform: Transform = {
 const defaultOpacity = 1;
 const defaultBlendMode: BlendMode = "normal";
 const defaultVolume = 0;
+const defaultFadeDuration = 0;
 
 const defaultTextLetterSpacing = 0;
 const defaultTextLineHeight = 1.2;
@@ -75,6 +76,7 @@ export const DEFAULTS = {
 		opacity: defaultOpacity,
 		blendMode: defaultBlendMode,
 		volume: defaultVolume,
+		fadeDuration: defaultFadeDuration,
 	},
 	text: {
 		letterSpacing: defaultTextLetterSpacing,

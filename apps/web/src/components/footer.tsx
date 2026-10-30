@@ -1,11 +1,15 @@
 import Link from "next/link";
-import { FaGithub } from "react-icons/fa6";
+import { FaGithub, FaTelegram } from "react-icons/fa6";
 import Image from "next/image";
 import { DEFAULT_LOGO_URL } from "@/site/brand";
-import { SOCIAL_LINKS } from "@/site/social";
+import {
+	AI_POWER_USERS_COURSE_URL,
+	ARGO_URL,
+	SOCIAL_LINKS,
+} from "@/site/social";
 import { capitalizeFirstLetter } from "@/utils/string";
 
-type Category = "resources" | "company";
+type Category = "resources" | "company" | "community";
 
 interface FooterLink {
 	label: string;
@@ -16,17 +20,16 @@ type CategoryLinks = Record<Category, FooterLink[]>;
 
 const links: CategoryLinks = {
 	resources: [
-		{ label: "Roadmap", href: "/roadmap" },
 		{ label: "Changelog", href: "/changelog" },
-		{ label: "Blog", href: "/blog" },
-		{ label: "Privacy", href: "/privacy" },
-		{ label: "Terms of use", href: "/terms" },
+		{ label: "MIT License", href: `${SOCIAL_LINKS.github}/blob/main/LICENSE` },
 	],
 	company: [
-		{ label: "Contributors", href: "/contributors" },
-		{ label: "Sponsors", href: "/sponsors" },
 		{ label: "Brand", href: "/brand" },
 		{ label: "About", href: `${SOCIAL_LINKS.github}/blob/main/README.md` },
+	],
+	community: [
+		{ label: "Telegram", href: SOCIAL_LINKS.telegram },
+		{ label: "AI Power Users course", href: AI_POWER_USERS_COURSE_URL },
 	],
 };
 
@@ -46,8 +49,19 @@ export function Footer() {
 							/>
 							<span className="text-lg font-bold">ArgoCut</span>
 						</div>
-						<p className="text-muted-foreground mb-5 text-sm md:text-left">
+						<p className="text-muted-foreground mb-2 text-sm md:text-left">
 							The privacy-first video editor that feels simple to use.
+						</p>
+						<p className="text-muted-foreground mb-5 text-sm md:text-left">
+							Brought to you by{" "}
+							<Link
+								href={ARGO_URL}
+								className="text-foreground hover:underline"
+								target="_blank"
+								rel="noopener noreferrer"
+							>
+								Argo
+							</Link>
 						</p>
 						<div className="flex justify-start gap-3">
 							<Link
@@ -55,13 +69,23 @@ export function Footer() {
 								className="text-muted-foreground hover:text-foreground transition-colors"
 								target="_blank"
 								rel="noopener noreferrer"
+								aria-label="ArgoCut on GitHub"
 							>
 								<FaGithub className="size-5" />
+							</Link>
+							<Link
+								href={SOCIAL_LINKS.telegram}
+								className="text-muted-foreground hover:text-foreground transition-colors"
+								target="_blank"
+								rel="noopener noreferrer"
+								aria-label="ArgoCut Telegram community"
+							>
+								<FaTelegram className="size-5" />
 							</Link>
 						</div>
 					</div>
 
-					<div className="flex items-start justify-start gap-12 py-2">
+					<div className="flex flex-wrap items-start justify-start gap-x-10 gap-y-8 py-2">
 						{(Object.keys(links) as Category[]).map((category) => (
 							<div key={category} className="flex flex-col gap-2">
 								<h3 className="text-foreground font-semibold">
@@ -95,9 +119,15 @@ export function Footer() {
 				{/* Bottom Section */}
 				<div className="flex flex-col items-start justify-between gap-4 pt-2 md:flex-row">
 					<div className="text-muted-foreground flex items-center gap-4 text-sm">
-						<span>
-							© {new Date().getFullYear()} ArgoCut, All Rights Reserved
-						</span>
+						<span>© {new Date().getFullYear()} ArgoCut</span>
+						<Link
+							href={`${SOCIAL_LINKS.github}/blob/main/LICENSE`}
+							className="hover:text-foreground transition-colors"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							MIT Licensed, fork of OpenCut
+						</Link>
 					</div>
 				</div>
 			</div>

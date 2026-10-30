@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+#
+# Builds "ArgoCut (M1 Max).app" — a double-clickable macOS launcher that
+# starts/ensures ArgoCut on the M1 Max home-lab server (over Tailscale,
+# host "m1max") and opens it in the browser. Mirrors script/create-macos-app
+# but targets the remote M1 instead of localhost.
+#
+# Usage:
+#   script/create-macos-app-m1 [install-dir]
+#
+# Requires: passwordless SSH to konrad@m1max (already set up), and
+# ~/Documents/secondbrain/Areas/opencut/start-argocut-m1.sh present on m1max.
+
+set -euo pipefail
+
+if [[ "$(uname)" != "Darwin" ]]; then
+  echo "This only builds a macOS .app bundle (uname reports $(uname))." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ICON_SVG="$REPO_ROOT/apps/web/public/logos/argocut/icon.svg"
+INSTALL_DIR="${1:-/Applications}"
+APP_NAME="ArgoCut (M1 Max)"
+APP_PATH="$INSTALL_DIR/$APP_NAME.app"
+REMOTE_HOST="m1max"
+REMOTE_USER="konrad"
+REMOTE_START_SCRIPT="~/Documents/secondbrain/Areas/opencut/start-argocut-m1.sh"
+
+for cmd in qlmanage sips iconutil osacompile codesign; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    echo "Missing required tool: $cmd (this script needs the macOS developer tools)." >&2
+    exit 1
+  }
+done
+
+if [[ ! -f "$ICON_SVG" ]]; then
+  echo "Icon source not found: $ICON_SVG" >&2
+  exit 1
+fi
+
+mkdir -p "$INSTALL_DIR"
+
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+echo "→ Rendering the ArgoCut logo..."
+qlmanage -t -s 1024 -o "$WORK_DIR" "$ICON_SVG" >/dev/null
+ICON_PNG="$WORK_DIR/icon.svg.png"
+
+echo "→ Building iconset..."
+ICONSET="$WORK_DIR/$APP_NAME.iconset"
+mkdir -p "$ICONSET"
+for spec in \
+  "16:icon_16x16" "32:icon_16x16@2x" \
+  "32:icon_32x32" "64:icon_32x32@2x" \
+  "128:icon_128x128" "256:icon_128x128@2x" \
+  "256:icon_256x256" "512:icon_256x256@2x" \
+  "512:icon_512x512" "1024:icon_512x512@2x"; do
+  size="${spec%%:*}"; name="${spec##*:}"
+  sips -z "$size" "$size" "$ICON_PNG" --out "$ICONSET/$name.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$WORK_DIR/$APP_NAME.icns"
+
+echo "→ Writing launcher script..."
+cat > "$WORK_DIR/launcher.applescript" <<EOF
+tell application "Terminal"
+	activate
+	do script "ssh $REMOTE_USER@$REMOTE_HOST $REMOTE_START_SCRIPT"
+end tell
+
+-- Poll the M1 over Tailscale until the dev server answers, then open it.
+repeat with i from 1 to 90
+	delay 2
+	try
+		set httpStatus to do shell script "curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://$REMOTE_HOST:3000"
+		if httpStatus is not "000" then
+			open location "http://$REMOTE_HOST:3000"
+			exit repeat
+		end if
+	end try
+end repeat
+EOF
+
+echo "→ Compiling $APP_PATH..."
+rm -rf "$APP_PATH"
+osacompile -o "$APP_PATH" "$WORK_DIR/launcher.applescript"
+
+cp "$WORK_DIR/$APP_NAME.icns" "$APP_PATH/Contents/Resources/applet.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$APP_PATH/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$APP_PATH/Contents/Info.plist" 2>/dev/null \
+  || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $APP_NAME" "$APP_PATH/Contents/Info.plist"
+
+codesign --force --deep -s - "$APP_PATH"
+touch "$APP_PATH"
+
+echo "✓ Built $APP_PATH"
+echo "  Double-click it (or drag it into the Dock) to open ArgoCut running on the M1 Max."

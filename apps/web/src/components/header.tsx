@@ -13,6 +13,7 @@ import {
 	GithubIcon,
 	LinkSquare02Icon,
 	Menu02Icon,
+	TelegramIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { cn } from "@/utils/ui";
@@ -35,26 +36,10 @@ export function Header() {
 			label: "Brands",
 			href: "/brands",
 		},
-		{
-			label: "Roadmap",
-			href: "/roadmap",
-		},
-		{
-			label: "Contributors",
-			href: "/contributors",
-		},
-		{
-			label: "Sponsors",
-			href: "/sponsors",
-		},
-		{
-			label: "Blog",
-			href: "/blog",
-		},
 	];
 
 	return (
-		<header className="bg-background shadow-background/85 sticky top-0 z-10 shadow-[0_30px_35px_15px_rgba(0,0,0,1)]">
+		<header className="bg-background sticky top-0 z-10 shadow-[0_12px_20px_-10px_rgba(0,0,0,0.35)]">
 			<div className="relative flex w-full items-center justify-between px-6 pt-4">
 				<div className="relative z-10 flex items-center gap-6">
 					<ContextMenu>
@@ -123,7 +108,25 @@ export function Header() {
 					</div>
 					<div className="hidden items-center gap-3 md:flex">
 						<BrandSwitcher />
-						<Link href={SOCIAL_LINKS.github}>
+						<Link
+							href={SOCIAL_LINKS.telegram}
+							target="_blank"
+							rel="noopener noreferrer"
+							aria-label="ArgoCut Telegram community"
+						>
+							<Button
+								className="bg-background"
+								variant="outline"
+								size="icon"
+							>
+								<HugeiconsIcon icon={TelegramIcon} className="size-4" />
+							</Button>
+						</Link>
+						<Link
+							href={SOCIAL_LINKS.github}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
 							<Button className="bg-background text-sm" variant="outline">
 								<HugeiconsIcon icon={GithubIcon} className="size-4" />
 								GitHub

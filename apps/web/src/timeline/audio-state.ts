@@ -51,6 +51,76 @@ export function hasAnimatedVolume({
 
 import { TICKS_PER_SECOND } from "@/wasm";
 
+export function getElementFadeInDuration({
+	element,
+}: {
+	element: AudioCapableElement;
+}): number {
+	const value = element.params.fadeInDuration;
+	return typeof value === "number" && value > 0 ? value : 0;
+}
+
+export function getElementFadeOutDuration({
+	element,
+}: {
+	element: AudioCapableElement;
+}): number {
+	const value = element.params.fadeOutDuration;
+	return typeof value === "number" && value > 0 ? value : 0;
+}
+
+export function hasFade({
+	element,
+}: {
+	element: AudioCapableElement;
+}): boolean {
+	return (
+		getElementFadeInDuration({ element }) > 0 ||
+		getElementFadeOutDuration({ element }) > 0
+	);
+}
+
+export function needsGainAutomation({
+	element,
+}: {
+	element: AudioCapableElement;
+}): boolean {
+	return hasAnimatedVolume({ element }) || hasFade({ element });
+}
+
+function resolveFadeGainMultiplier({
+	element,
+	localTime,
+}: {
+	element: AudioCapableElement;
+	localTime: number;
+}): number {
+	const durationSeconds = element.duration / TICKS_PER_SECOND;
+	const fadeInDuration = Math.min(
+		getElementFadeInDuration({ element }),
+		durationSeconds,
+	);
+	const fadeOutDuration = Math.min(
+		getElementFadeOutDuration({ element }),
+		durationSeconds,
+	);
+
+	// Each ramp is independently clamped to [0, 1] and combined with `Math.min`
+	// rather than renormalized, so an over-long fade-in/fade-out pair (e.g. after
+	// trimming the clip shorter) degrades to "quiet in the middle" instead of a
+	// discontinuous or negative gain.
+	let multiplier = 1;
+	if (fadeInDuration > 0 && localTime < fadeInDuration) {
+		multiplier = Math.min(multiplier, localTime / fadeInDuration);
+	}
+	if (fadeOutDuration > 0 && localTime > durationSeconds - fadeOutDuration) {
+		const remaining = durationSeconds - localTime;
+		multiplier = Math.min(multiplier, remaining / fadeOutDuration);
+	}
+
+	return Math.max(0, Math.min(1, multiplier));
+}
+
 export function resolveEffectiveAudioGain({
 	element,
 	trackMuted = false,
@@ -71,7 +141,9 @@ export function resolveEffectiveAudioGain({
 		localTime: Math.round(localTime * TICKS_PER_SECOND),
 	});
 
-	return dBToLinear(resolvedDb);
+	const fadeMultiplier = resolveFadeGainMultiplier({ element, localTime });
+
+	return dBToLinear(resolvedDb) * fadeMultiplier;
 }
 
 export function buildWaveformGainSamples({

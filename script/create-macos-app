@@ -1,0 +1,101 @@
+#!/usr/bin/env bash
+#
+# Builds ArgoCut.app — a double-clickable macOS launcher. Opening it starts
+# the Docker services, waits for Postgres, runs migrations, starts the
+# Next.js dev server in a Terminal window, and opens the editor in your
+# browser once it responds.
+#
+# Usage:
+#   script/create-macos-app [install-dir]
+#
+# install-dir defaults to /Applications. Pass ~/Applications if you don't
+# want to write to the shared, admin-owned Applications folder.
+#
+# The repo path is baked into the app at build time, so re-run this after
+# moving or re-cloning the repo.
+
+set -euo pipefail
+
+if [[ "$(uname)" != "Darwin" ]]; then
+  echo "create-macos-app only builds a macOS .app bundle (uname reports $(uname))." >&2
+  exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+ICON_SVG="$REPO_ROOT/apps/web/public/logos/argocut/icon.svg"
+INSTALL_DIR="${1:-/Applications}"
+APP_NAME="ArgoCut"
+APP_PATH="$INSTALL_DIR/$APP_NAME.app"
+
+for cmd in qlmanage sips iconutil osacompile codesign; do
+  command -v "$cmd" >/dev/null 2>&1 || {
+    echo "Missing required tool: $cmd (this script needs the macOS developer tools)." >&2
+    exit 1
+  }
+done
+
+if [[ ! -f "$ICON_SVG" ]]; then
+  echo "Icon source not found: $ICON_SVG" >&2
+  exit 1
+fi
+
+mkdir -p "$INSTALL_DIR"
+
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$WORK_DIR"' EXIT
+
+echo "→ Rendering the ArgoCut logo..."
+qlmanage -t -s 1024 -o "$WORK_DIR" "$ICON_SVG" >/dev/null
+ICON_PNG="$WORK_DIR/icon.svg.png"
+
+echo "→ Building iconset..."
+ICONSET="$WORK_DIR/$APP_NAME.iconset"
+mkdir -p "$ICONSET"
+for spec in \
+  "16:icon_16x16" "32:icon_16x16@2x" \
+  "32:icon_32x32" "64:icon_32x32@2x" \
+  "128:icon_128x128" "256:icon_128x128@2x" \
+  "256:icon_256x256" "512:icon_256x256@2x" \
+  "512:icon_512x512" "1024:icon_512x512@2x"; do
+  size="${spec%%:*}"; name="${spec##*:}"
+  sips -z "$size" "$size" "$ICON_PNG" --out "$ICONSET/$name.png" >/dev/null
+done
+iconutil -c icns "$ICONSET" -o "$WORK_DIR/$APP_NAME.icns"
+
+echo "→ Writing launcher script..."
+cat > "$WORK_DIR/launcher.applescript" <<EOF
+set repoPath to "$REPO_ROOT"
+
+tell application "Terminal"
+	activate
+	do script "cd " & quoted form of repoPath & " && docker compose up -d db redis serverless-redis-http && until docker compose exec -T db pg_isready -U argocut >/dev/null 2>&1; do sleep 1; done && cd apps/web && bun run db:migrate && bun run dev"
+end tell
+
+-- Poll until the dev server answers, then open it in the browser.
+repeat with i from 1 to 90
+	delay 2
+	try
+		set httpStatus to do shell script "curl -s -o /dev/null -w '%{http_code}' --max-time 2 http://localhost:3000"
+		if httpStatus is not "000" then
+			open location "http://localhost:3000"
+			exit repeat
+		end if
+	end try
+end repeat
+EOF
+
+echo "→ Compiling $APP_PATH..."
+rm -rf "$APP_PATH"
+osacompile -o "$APP_PATH" "$WORK_DIR/launcher.applescript"
+
+cp "$WORK_DIR/$APP_NAME.icns" "$APP_PATH/Contents/Resources/applet.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $APP_NAME" "$APP_PATH/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_NAME" "$APP_PATH/Contents/Info.plist" 2>/dev/null \
+  || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string $APP_NAME" "$APP_PATH/Contents/Info.plist"
+
+codesign --force --deep -s - "$APP_PATH"
+touch "$APP_PATH"
+
+echo "✓ Built $APP_PATH"
+echo "  Double-click it (or drag it into the Dock) to start ArgoCut."

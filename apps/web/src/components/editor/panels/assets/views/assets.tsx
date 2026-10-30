@@ -19,12 +19,14 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	Tooltip,
 	TooltipContent,
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { YoutubeView } from "@/youtube/components/assets-view";
 import { DEFAULT_NEW_ELEMENT_DURATION } from "@/timeline/creation";
 import { mediaTimeFromSeconds, type MediaTime } from "@/wasm";
 import { useEditor } from "@/editor/use-editor";
@@ -59,7 +61,39 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
+type MediaSubTab = "my-media" | "youtube";
+
 export function MediaView() {
+	const [subTab, setSubTab] = useState<MediaSubTab>("my-media");
+
+	return (
+		<div className="flex h-full flex-col">
+			<div className="border-b px-3 pt-3 pb-3">
+				<Tabs
+					value={subTab}
+					onValueChange={(value) => {
+						if (value === "my-media" || value === "youtube") setSubTab(value);
+					}}
+				>
+					<TabsList>
+						<TabsTrigger value="my-media">My Media</TabsTrigger>
+						<TabsTrigger value="youtube">YouTube</TabsTrigger>
+					</TabsList>
+				</Tabs>
+			</div>
+			<div className="min-h-0 flex-1">
+				<div className={cn("size-full", subTab !== "my-media" && "hidden")}>
+					<MyMediaView />
+				</div>
+				<div className={cn("size-full", subTab !== "youtube" && "hidden")}>
+					<YoutubeView />
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function MyMediaView() {
 	const editor = useEditor();
 	const mediaFiles = useEditor((e) => e.media.getAssets());
 	const activeProject = useEditor((e) => e.project.getActive());

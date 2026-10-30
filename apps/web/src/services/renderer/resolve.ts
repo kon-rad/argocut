@@ -237,10 +237,19 @@ async function resolveImageNode({
 	node: ImageNode;
 	context: ResolveContext;
 }): Promise<ResolvedVisualSourceNodeState | null> {
-	const source = await loadImageSource({
-		url: node.params.url,
-		maxSourceSize: node.params.maxSourceSize,
-	});
+	let source: Awaited<ReturnType<typeof loadImageSource>>;
+	try {
+		source = await loadImageSource({
+			url: node.params.url,
+			maxSourceSize: node.params.maxSourceSize,
+		});
+	} catch (error) {
+		// One broken image (a revoked url, a load failure) shouldn't blank the
+		// whole frame — skip just this element instead of throwing through the
+		// render tree, which VideoNode's resolution already avoids doing.
+		console.warn("Failed to load image source:", error);
+		return null;
+	}
 	const visualState = resolveVisualState({
 		params: node.params,
 		context,
@@ -266,7 +275,13 @@ async function resolveStickerNode({
 	node: StickerNode;
 	context: ResolveContext;
 }): Promise<ResolvedVisualSourceNodeState | null> {
-	const source = await loadStickerSource({ stickerId: node.params.stickerId });
+	let source: Awaited<ReturnType<typeof loadStickerSource>>;
+	try {
+		source = await loadStickerSource({ stickerId: node.params.stickerId });
+	} catch (error) {
+		console.warn("Failed to load sticker source:", error);
+		return null;
+	}
 	const sourceWidth = node.params.intrinsicWidth ?? source.width;
 	const sourceHeight = node.params.intrinsicHeight ?? source.height;
 	const visualState = resolveVisualState({
@@ -441,7 +456,13 @@ async function resolveBackdropSource({
 		};
 	}
 
-	const source = await loadImageSource({ url: node.params.url });
+	let source: Awaited<ReturnType<typeof loadImageSource>>;
+	try {
+		source = await loadImageSource({ url: node.params.url });
+	} catch (error) {
+		console.warn("Failed to load blur backdrop image source:", error);
+		return null;
+	}
 	return {
 		source: source.source,
 		width: source.width,

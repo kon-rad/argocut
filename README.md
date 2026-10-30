@@ -42,6 +42,7 @@ forgets the row and leaves every file on disk.**
 - `packages/mcp-server/` — MCP server so an agent can drive the editor
 - `rust/` — GPU compositor, effects, masks, and WASM bindings
 - `docs/` — architecture and subsystem documentation, including the [devlog](docs/devlog.md)
+  and [agent editing modes](docs/agent-editing-modes.md) (tab-driven skill vs. MCP server)
 
 ## Getting started
 
@@ -143,6 +144,41 @@ docker compose up -d
 ```
 
 Available at [http://localhost:3100](http://localhost:3100).
+
+### macOS app launcher
+
+If you'd rather click an icon than type commands, build a native launcher:
+
+```bash
+script/create-macos-app
+```
+
+This renders the ArgoCut logo (`apps/web/public/logos/argocut/icon.svg`) into a
+`.icns`, compiles a small AppleScript app around it, and installs
+`ArgoCut.app` to `/Applications` (pass a different path, e.g.
+`script/create-macos-app ~/Applications`, if you don't want to write to the
+shared Applications folder).
+
+Opening the app:
+
+1. Opens a Terminal window and runs `docker compose up -d db redis
+   serverless-redis-http`, waits for Postgres, then `bun run db:migrate` and
+   `bun run dev` in `apps/web` — so you can watch it start and stop it with
+   `Ctrl+C`.
+2. Polls `http://localhost:3000` until the dev server responds, then opens it
+   in your default browser.
+
+Notes:
+
+- Requires `bun install` to have been run at least once — the launcher starts
+  the dev server, it doesn't install dependencies.
+- The repo path is baked into the app at build time. Re-run the script if you
+  move or re-clone the repo.
+- Quitting the browser or Terminal window doesn't stop Docker. Tear down the
+  containers the normal way: `docker compose down`.
+- Needs the macOS developer command-line tools (`qlmanage`, `sips`,
+  `iconutil`, `osacompile`, `codesign` — all included with Xcode or the
+  standalone Command Line Tools).
 
 ## Credits
 

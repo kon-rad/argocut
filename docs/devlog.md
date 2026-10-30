@@ -4,6 +4,64 @@ Running record of what changed, why, and what it cost. Newest first.
 
 ---
 
+## 2026-10-18 — ArgoCut moved to the M1 Max home lab as the designated agentic editor
+
+The M1 Max (`m1max`, Tailscale IP `100.112.250.8`, user `konrad`) is now where
+ArgoCut actually runs. The M4 stays a client: it reaches the editor over the
+tailnet instead of running its own dev server and Postgres.
+
+**What was missing and had to be set up from scratch on the M1:**
+
+- The vault's `Areas/opencut` was present but empty on the M1 — it's a plain
+  git repo nested in the vault (gitlink, no `.gitmodules` entry), so a vault
+  git pull never clones it. Fixed with `git clone
+  https://github.com/kon-rad/argocut.git Areas/opencut` and checked out to
+  the commit the vault's gitlink pointed at (`dcf47be2`).
+- No container runtime existed (no Docker Desktop, no Colima). Installed via
+  `brew install colima docker docker-compose bun`, then `brew services start
+  colima` — this registers a LaunchAgent so Colima's VM comes back on its own
+  after a reboot/login. Added `cliPluginsExtraDirs` to `~/.docker/config.json`
+  so `docker compose` resolves to the Homebrew-installed plugin.
+- `bun install` + `bun run db:migrate` against the repo's own
+  `docker-compose.yml` (Postgres 17 `argocut`/`argocut`/`argocut`, Redis,
+  serverless-redis-http) created the 10-table schema (`storage_docs`,
+  `brands`, etc.) in a Docker-managed volume (`opencut_postgres_data`) — this
+  is the persistent store for projects created on the M1.
+
+**Known limitation, matching the documented M1 home-lab design:** a `bun run
+dev` LaunchAgent in the Aqua GUI domain can't `cd` into
+`~/Documents/secondbrain` — launchd GUI agents hit macOS's TCC protection on
+`~/Documents` (`getcwd: ... Operation not permitted`), while an SSH-spawned
+process does not. Same class of problem as the Ollama LaunchAgent noted in
+[[m1-max-home-server-research]] (reboot needs a human). Worked around it with
+`Areas/opencut/start-argocut-m1.sh`, an idempotent script (Docker up → wait
+for Postgres → migrate → start `bun run dev` detached with `nohup` if not
+already serving) that's meant to be run **over SSH**, not as a GUI LaunchAgent.
+Colima itself does persist across reboots (`brew services`); only the
+Next.js dev server needs a manual re-run of the script after an M1 reboot —
+acceptable since FileVault already requires a human at the keyboard for any
+M1 reboot.
+
+**M4 side:** `script/create-macos-app-m1` (sibling of `script/create-macos-app`)
+builds `/Applications/ArgoCut (M1 Max).app` — double-click opens a Terminal
+that SSHes to `m1max` and runs `start-argocut-m1.sh`, polls
+`http://m1max:3000`, then opens it in the browser. Built and verified: the
+script is idempotent (a second run just confirms the server already answers
+`200` and exits), and the app does open the editor pointed at the M1.
+
+**Verified:** `curl http://m1max:3000/` → `200` from the M4 over Tailscale;
+`docker compose exec db psql -U argocut -d argocut -c '\dt'` on the M1 lists
+all 10 tables; double-clicking `ArgoCut (M1 Max).app` opens Chrome on
+`http://m1max:3000`.
+
+**Not done / open:** no backup job yet for `opencut_postgres_data` (the M1
+home-lab backup plan in [[m1-max-home-server-research]] covers the droplet
+dump, not this volume) — add it when the 3-2-1 backup phase for this Mac
+happens. Brands/media blob storage (`$ARGOCUT_DATA_DIR/blob/`) wasn't
+configured beyond the compose defaults.
+
+---
+
 ## 2026-09-13 — Color Grading, and generalizing the effects uniform pipeline
 
 Added Color Grading as a built-in effect (brightness, contrast, saturation,

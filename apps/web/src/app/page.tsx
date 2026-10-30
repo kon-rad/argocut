@@ -1,4 +1,6 @@
 import { Hero } from "@/components/landing/hero";
+import { ProductOverview } from "@/components/landing/product-overview";
+import { AgentWorkflow } from "@/components/landing/agent-workflow";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import type { Metadata } from "next";
@@ -15,6 +17,8 @@ export default async function Home() {
 		<div>
 			<Header />
 			<Hero />
+			<ProductOverview />
+			<AgentWorkflow />
 			<Footer />
 		</div>
 	);

@@ -214,9 +214,13 @@ impl EffectPipeline {
                 .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                     label: Some("effects-command-encoder"),
                 });
+        // No shared pool for a one-off call, so allocate directly — this path is
+        // an interactive single-frame preview, not the per-video-frame export
+        // loop, so it doesn't need pooling to avoid GPU allocation churn.
         let output = self.apply_with_encoder(
             context,
             &mut encoder,
+            &mut |width, height| context.create_render_texture(width, height, "effects-pass-output"),
             ApplyEffectsOptions {
                 source,
                 width,
@@ -228,10 +232,16 @@ impl EffectPipeline {
         Ok(output)
     }
 
+    /// `acquire_texture` supplies each pass's output texture. Callers rendering
+    /// many frames in a row (export, playback) should back it with a pool —
+    /// every other texture in the compositor's per-frame pipeline is pooled,
+    /// and a full-resolution texture allocated fresh per effect pass per frame
+    /// is exactly the kind of GPU allocation churn the pool exists to avoid.
     pub fn apply_with_encoder(
         &self,
         context: &GpuContext,
         encoder: &mut wgpu::CommandEncoder,
+        acquire_texture: &mut dyn FnMut(u32, u32) -> wgpu::Texture,
         ApplyEffectsOptions {
             source,
             width,
@@ -243,8 +253,7 @@ impl EffectPipeline {
 
         for pass in passes {
             let input_texture = current_texture.as_ref().unwrap_or(source);
-            let output_texture =
-                context.create_render_texture(width, height, "effects-pass-output");
+            let output_texture = acquire_texture(width, height);
             let input_view = input_texture.create_view(&wgpu::TextureViewDescriptor::default());
             let output_view = output_texture.create_view(&wgpu::TextureViewDescriptor::default());
             let texture_bind_group =

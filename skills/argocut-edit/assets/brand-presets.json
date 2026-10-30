@@ -44,6 +44,44 @@
     }
   },
 
+  "argo": {
+    "_source": "Areas/argo/argo-podcast/argo-podcast-guide.md + caption-video/assets/brand-style.json (Newsreader, ink base #2B2722, gold highlight #F5C842). ArgoCut has no per-word karaoke or outline param, so this reproduces the look as line captions: cream text on an ink plate instead of dark text with a white outline.",
+    "caption": {
+      "fontFamily": "Newsreader",
+      "fontSize": 3.2,
+      "fontWeight": "bold",
+      "color": "#F5F0E6",
+      "textAlign": "center",
+      "lineHeight": 1.3,
+      "letterSpacing": 0,
+      "background.enabled": true,
+      "background.color": "#2B2722",
+      "background.cornerRadius": 10,
+      "background.paddingX": 112,
+      "background.paddingY": 75,
+      "transform.positionY": 550
+    },
+    "statement": {
+      "_use": "Title/end card headline text, set over the void/ink card image.",
+      "fontFamily": "Newsreader",
+      "fontSize": 6.5,
+      "fontWeight": "bold",
+      "color": "#F5F0E6",
+      "textAlign": "center",
+      "lineHeight": 1.25,
+      "background.enabled": false
+    },
+    "label": {
+      "_use": "Small mono-ish caps label above a title/end card headline.",
+      "fontFamily": "Newsreader",
+      "fontSize": 2.4,
+      "color": "#CE7F44",
+      "textAlign": "center",
+      "letterSpacing": 4,
+      "background.enabled": false
+    }
+  },
+
   "globaldroneclub": {
     "_source": "Areas/GlobalDroneClub/style-guide.md",
     "caption": {

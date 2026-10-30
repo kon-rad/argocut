@@ -5,6 +5,7 @@ import { useEditor } from "@/editor/use-editor";
 import { useAssetsPanelStore } from "@/components/editor/panels/assets/assets-panel-store";
 import { AudioWaveform, WAVEFORM_GAIN_SAMPLE_COUNT } from "./audio-waveform";
 import { AudioVolumeLine } from "./audio-volume-line";
+import { AudioFadeHandles } from "./audio-fade-handles";
 import { useElementPreview } from "@/timeline/hooks/use-element-preview";
 import {
 	useKeyframeDrag,
@@ -1034,6 +1035,11 @@ function AudioElementContent({
 						color={TIMELINE_TRACK_THEME.audio.waveformColor}
 					/>
 					<AudioVolumeLine element={element} trackId={trackId} />
+					<AudioFadeHandles
+						element={element}
+						trackId={trackId}
+						pixelsPerSecond={pixelsPerSecond}
+					/>
 				</div>
 			</div>
 		);
@@ -1047,6 +1053,11 @@ function AudioElementContent({
 				</span>
 			</div>
 			<AudioVolumeLine element={element} trackId={trackId} />
+			<AudioFadeHandles
+				element={element}
+				trackId={trackId}
+				pixelsPerSecond={pixelsPerSecond}
+			/>
 		</div>
 	);
 }

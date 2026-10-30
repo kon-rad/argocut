@@ -32,11 +32,19 @@ export function loadImageSource({
 	const promise = (async (): Promise<CachedImageSource> => {
 		const image = new Image();
 
-		await new Promise<void>((resolve, reject) => {
-			image.onload = () => resolve();
-			image.onerror = () => reject(new Error("Image load failed"));
-			image.src = url;
-		});
+		try {
+			await new Promise<void>((resolve, reject) => {
+				image.onload = () => resolve();
+				image.onerror = () => reject(new Error("Image load failed"));
+				image.src = url;
+			});
+		} catch (error) {
+			// Don't let one failed load (a revoked blob URL, a transient network
+			// hiccup) poison every future frame for this url — a rejected promise
+			// cached here fails forever, even once the underlying resource is fine.
+			imageSourceCache.delete(cacheKey);
+			throw error;
+		}
 
 		const naturalWidth = image.naturalWidth;
 		const naturalHeight = image.naturalHeight;
